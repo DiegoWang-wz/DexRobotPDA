@@ -1,6 +1,8 @@
 ﻿@page "/process_1"
 @inject TaskService TaskService
 @inject ProcessOneService ProcessOneService
+@inject IJSRuntime JSRuntime
+@implements IAsyncDisposable
 <MudPaper Elevation="3" Class="pa-4 ma-2 mx-md-20 my-md-4">
     <MudStack Row="true" Spacing="4" Class="d-flex align-center py-2">
         <MudTextField
@@ -18,6 +20,7 @@
             Color="Color.Error"
             StartIcon="@Icons.Material.Filled.DeleteForever"
             OnClick="ClearTaskId"
+            Size="Size.Large"
             Class="w-full md:w-auto">
             清除
         </MudButton>
@@ -26,6 +29,7 @@
             Color="Color.Primary"
             StartIcon="@Icons.Material.Filled.Search"
             OnClick="LoadTaskDetail"
+            Size="Size.Large"
             Disabled="isLoading"
             Class="w-full md:w-auto">
             @(isLoading ? "查询中..." : "查询")
@@ -82,7 +86,22 @@
                         </div>
                     </TitleContent>
                     <ChildContent>
-                        Panel Content
+                        <div  class="d-flex flex-column flex-md-row w-100">
+                            <MudPaper Width="360px" Class="my-2 mx-1">
+                                <MudList T="string">
+                                    <MudListItem Text="@($"任务标题：{task.title ?? ""}")" Icon="@Icons.Material.Filled.Subtitles"/>
+                                    <MudListItem Text="@($"任务描述：{task.description ?? ""}")" Icon="@Icons.Material.Filled.Dehaze"/>
+                                    <MudListItem Text="@($"优先级：{(task.priority == 1 ? "低" : task.priority == 2 ? "中" : task.priority == 3 ? "高" : "")}")" Icon="@Icons.Material.Filled.PriorityHigh"/>
+                                </MudList>
+                            </MudPaper>
+                            <MudPaper Width="360px" Class="my-2 mx-1">
+                                <MudList T="string">
+                                    <MudListItem Text="@($"负责人：{task.assignee_id ?? ""}")" Icon="@Icons.Material.Filled.ManageAccounts"/>
+                                    <MudListItem Text="@($"创建日期：{task.created_at.ToString("yyyy-MM-dd HH:mm:ss") ?? ""}")" Icon="@Icons.Material.Filled.CalendarMonth"/>
+                                    <MudListItem Text="@($"更新日期：{task.updated_at.ToString("yyyy-MM-dd HH:mm:ss") ?? ""}")" Icon="@Icons.Material.Filled.EditCalendar"/>
+                                </MudList>
+                            </MudPaper>
+                        </div>
                     </ChildContent>
                 </MudExpansionPanel>
             </MudExpansionPanels>
@@ -140,14 +159,16 @@
     private MudForm form;
     private bool validation = true;
     private AddMotorDto _motorDto = new AddMotorDto();
-
+    private DotNetObjectReference<ProcessOne>? dotNetRef;
+    
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (firstRender)
         {
             isLoading = true;
             StateHasChanged();
-
+            dotNetRef = DotNetObjectReference.Create(this);
+            await JSRuntime.InvokeVoidAsync("enterKeyHandler.initialize", dotNetRef);
             try
             {
                 currentUser = await AuthService.GetCurrentUserAsync();
@@ -189,21 +210,32 @@
         StateHasChanged();
     }
 
+    [JSInvokable]
+    public async Task OnEnterKeyPressed()
+    {
+        StateHasChanged();
+        await Task.Delay(1);
+        await LoadTaskDetail();
+    }
+
 
     private async Task LoadTaskDetail()
     {
         if (string.IsNullOrWhiteSpace(taskId))
         {
             hasInputError = true;
+            StateHasChanged();
             return;
         }
 
         hasInputError = false;
         isLoading = true;
+        StateHasChanged();
 
         try
         {
             hasSearched = true;
+            StateHasChanged();
             task = await TaskService.GetTaskDetail(taskId);
             _motorDto.task_id = taskId;
             await GetFinishedList();
@@ -216,6 +248,7 @@
         finally
         {
             isLoading = false;
+            StateHasChanged();
         }
     }
 
@@ -301,6 +334,17 @@
         {
             SnackbarHelper.Show(Snackbar, "系统异常，提交失败", Severity.Error);
         }
+    }
+    
+    public async ValueTask DisposeAsync()
+    {
+        if (dotNetRef != null)
+        {
+            await JSRuntime.InvokeVoidAsync("enterKeyHandler.dispose");
+            dotNetRef.Dispose();
+        }
+        
+        GC.SuppressFinalize(this);
     }
 
 }
