@@ -1,0 +1,200 @@
+﻿@page "/TaskDetail"
+@page "/TaskDetail/{taskId}"
+@inject ProcessOneService ProcessOneService
+@inject TaskService TaskService
+
+@if (isLoading)
+{
+    <div class="d-flex justify-content-center align-items-center min-vh-100">
+        <MudSpinner Color="Color.Primary" Size="Size.Large"/>
+        <MudText Class="ms-4" Typo="Typo.h6">加载任务数据中...</MudText>
+    </div>
+}
+else if (task == null)
+{
+    <div class="d-flex justify-content-center align-items-center min-vh-100">
+        <MudText Typo="Typo.h6" Color="Color.Error">无法加载任务数据，请检查任务ID是否正确</MudText>
+    </div>
+}
+else
+{
+    <MudExpansionPanels Class="ma-2 mx-md-8">
+        <MudExpansionPanel>
+            <TitleContent>
+                <div class="d-flex">
+                    <MudText Typo="Typo.h6">任务明细 - @taskId</MudText>
+                    <MudSpacer/>
+                    @if (task.status == 1)
+                    {
+                        <MudChip T="string" Color="Color.Info">进行中</MudChip>
+                    }
+                    else if (task.status == 2)
+                    {
+                        <MudChip T="string" Color="Color.Success">已完成</MudChip>
+                    }
+                    else if (task.status == 3)
+                    {
+                        <MudChip T="string" Color="Color.Error">已取消</MudChip>
+                    }
+                    else
+                    {
+                        <MudChip T="string">未开始</MudChip>
+                    }
+                </div>
+            </TitleContent>
+            <ChildContent>
+                Panel Content
+            </ChildContent>
+        </MudExpansionPanel>
+    </MudExpansionPanels>
+
+    <MudPaper Class="ma-2 pa-md-4 mx-md-8" Elevation="3">
+        <MudStepper NonLinear="true" @bind-ActiveIndex="_index" NavClass="border-b mud-border-lines-default"
+                    OnPreviewInteraction="OnPreviewInteraction"
+                    StepClass="pt-4" ShowResetButton>
+            <TitleTemplate>@**@</TitleTemplate>
+            <ConnectorTemplate Context="step">
+                <div class="mud-stepper-nav-connector">
+                    @{
+                        int value = step.Completed ? 100 : 0;
+                        <MudProgressLinear Striped Value="value" Min="0" Max="100" Color="Color.Success"
+                                           Style="height: 4px; background-color: #d4ddeb; border-radius: 2px;"/>
+                    }
+                </div>
+            </ConnectorTemplate>
+            <LabelTemplate>
+                @if (context.IsActive)
+                {
+                    if (context.Completed)
+                    {
+                        <MudBadge Dot="true" Color="Color.Info" Class="mx-2 my-1">
+                            <MudChip T="string" Icon="@Icons.Material.Filled.CheckCircle"
+                                     Color="Color.Success">@(context.Title)</MudChip>
+                        </MudBadge>
+                    }
+                    else
+                    {
+                        <MudBadge Dot="true" Color="Color.Info" Class="mx-2 my-1">
+                            <MudChip T="string">@(context.Title)</MudChip>
+                        </MudBadge>
+                    }
+                }
+                else if (context.Completed)
+                {
+                    <MudChip T="string" Icon="@Icons.Material.Filled.CheckCircle"
+                             Color="Color.Success">@(context.Title)</MudChip>
+                }
+                else
+                {
+                    <MudChip T="string">@(context.Title)</MudChip>
+                }
+            </LabelTemplate>
+            <ChildContent>
+                <MudStep Completed="task.process_1" Title="1.电机粘蜗杆">
+                    Check-in Step 1:
+                </MudStep>
+                <MudStep Completed="task.process_2" Title="2.电机组装">
+                    Check-in Step 2:
+                </MudStep>
+                <MudStep Completed="task.process_3" Title="3.成品组装">
+                    Check-in Step 3:
+                </MudStep>
+            </ChildContent>
+            <ActionContent Context="stepper">
+                <MudButton Variant="Variant.Filled"
+                           Color="Color.Primary"
+                           OnClick="@(() => GoToPrevious())"
+                           Disabled="@(_index <= 0)">
+                    <MudIcon Icon="@Icons.Material.Filled.ArrowBack"/>
+                    上一步
+                </MudButton>
+                <MudSpacer/>
+                <MudButton Variant="Variant.Filled"
+                           Color="Color.Primary"
+                           OnClick="@(() => GoToNext())"
+                           Disabled="@(_index >= 5)">
+                    下一步
+                    <MudIcon Icon="@Icons.Material.Filled.ArrowForward"/>
+                </MudButton>
+            </ActionContent>
+        </MudStepper>
+    </MudPaper>
+}
+
+@code {
+    [Parameter] public string taskId { get; set; }
+    private ProductTaskDto task;
+    private int _index;
+    private bool _completed;
+    private bool isLoading = true;
+    private List<MotorDto> finishedMotors = new List<MotorDto>();
+
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!string.IsNullOrEmpty(taskId))
+        {
+            await LoadTaskDetail();
+        }
+        else
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task OnPreviewInteraction(StepperInteractionEventArgs arg)
+    {
+        if (arg.Action == StepAction.Activate)
+        {
+            int targetIndex = arg.StepIndex;
+            SnackbarHelper.Show(Snackbar, Convert.ToString(targetIndex + 1), Severity.Success);
+            Console.WriteLine($"即将激活步骤: {targetIndex}");
+        }
+    }
+
+    private async Task GetFinishedMotors()
+    {
+        try
+        {
+            var result = await ProcessOneService.GetFinishedList(taskId);
+            finishedMotors = result;
+        }
+        catch (Exception ex)
+        {
+            finishedMotors = new List<MotorDto>();
+            SnackbarHelper.Show(Snackbar, "加载失败", Severity.Warning);
+        }
+    }
+
+    private async Task LoadTaskDetail()
+    {
+        try
+        {
+            isLoading = true; // 开始加载
+            task = await TaskService.GetTaskDetail(taskId);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"加载任务失败: {ex.Message}");
+            await DialogService.ShowMessageBox(
+                "错误",
+                $"加载任务失败: {ex.Message}",
+                yesText: "确定");
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private void GoToNext()
+    {
+        if (_index < 5) _index++;
+    }
+
+    private void GoToPrevious()
+    {
+        if (_index > 0) _index--;
+    }
+
+}

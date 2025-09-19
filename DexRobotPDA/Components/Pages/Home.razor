@@ -1,0 +1,192 @@
+﻿@page "/"
+
+<MudLayout>
+    <!-- 合并重复的 MudContainer：所有状态共享一个容器，减少嵌套 -->
+    <MudMainContent>
+        <MudContainer MaxWidth="MaxWidth.Large" Class="my-1">
+            @if (isLoading)
+            {
+                <!-- 加载状态：简化 Paper 内布局（用 Flex 替代默认流布局） -->
+                <MudPaper Class="pa-6 text-center d-flex align-center justify-center">
+                    <MudCircularProgress Color="Color.Primary" Class="mr-3"/>
+                    <MudText>加载中...</MudText>
+                </MudPaper>
+            }
+            else if (currentUser == null)
+            {
+                <MudPaper Class="pa-6 text-center">
+                    <MudIcon Icon="@Icons.Material.Filled.Warning" Color="Color.Warning" Size="Size.Large" Class="mb-2"/>
+                    <MudText>未登录或会话已过期</MudText>
+                    <MudButton 
+                        Variant="Variant.Filled" 
+                        Color="Color.Primary" 
+                        Class="mt-4"
+                        OnClick="@(() => NavManager.NavigateTo("/login"))">
+                        前往登录
+                    </MudButton>
+                </MudPaper>
+            }
+            else
+            {
+                <MudPaper Class="pa-4 mb-4 d-flex align-center" Elevation="1">
+                    <MudAvatar Size="Size.Small" Color="Color.Success" Class="mr-3">
+                        <MudIcon Icon="@Icons.Material.Filled.Person" Size="Size.Medium"/>
+                    </MudAvatar>
+                    <!-- 合并用户信息文本，减少 div 嵌套 -->
+                    <div Class="mr-auto">
+                        <MudText Typo="Typo.body2">操作员: @currentUser.employee_name</MudText>
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">
+                            部门: @currentUser.department · 工号: @currentUser.employee_id
+                        </MudText>
+                    </div>
+                    <MudChip 
+                        T="string" 
+                        Color="Color.Success" 
+                        Variant="Variant.Filled"
+                        Icon="@Icons.Material.Filled.CheckCircle" 
+                        Class="ml-2">
+                        在线
+                    </MudChip>
+                </MudPaper>
+
+                <MudText Typo="Typo.h5" Class="mb-4 mt-6 text-primary">请选择操作项目</MudText>
+                <MudGrid Spacing="2" Justify="Justify.FlexStart">
+                    @foreach (var operation in operations)
+                    {
+                        <MudItem xs="12" sm="6" md="4">
+                            <MudPaper Class="operation-card" Elevation="1">
+                                <MudButton 
+                                    Variant="Variant.Filled"
+                                    FullWidth="true"
+                                    Size="Size.Large"
+                                    Color="Color.Primary"
+                                    EndIcon="@Icons.Material.Filled.ArrowForward"
+                                    OnClick="@(() => NavigateToOperation(operation.Route))"
+                                    Class="operation-button">
+                                    <MudIcon Icon="@operation.Icon" Class="mr-2"/>
+                                    @operation.Name
+                                </MudButton>
+                                <MudText Typo="Typo.caption" Color="Color.Secondary" Class="text-center mt-1">
+                                    今日已完成: @operation.CompletedToday
+                                </MudText>
+                            </MudPaper>
+                        </MudItem>
+                    }
+                </MudGrid>
+
+                <MudText Typo="Typo.h6" Class="mb-3 mt-8 text-primary">快捷操作</MudText>
+                <MudPaper Elevation="0" Class="operation-card">
+                    <MudGrid Spacing="2">
+                        @foreach (var quickAction in quickActions)
+                        {
+                            <MudItem xs="6" sm="3">
+                                <MudButton 
+                                    Variant="Variant.Outlined" 
+                                    FullWidth="true" 
+                                    Color="Color.Secondary"
+                                    Size="Size.Small"
+                                    Icon="@quickAction.Icon">
+                                    @quickAction.Name
+                                </MudButton>
+                            </MudItem>
+                        }
+                    </MudGrid>
+                </MudPaper>
+            }
+        </MudContainer>
+    </MudMainContent>
+</MudLayout>
+
+@code {
+    public class OperationItem
+    {
+        public string Name { get; set; }
+        public string Icon { get; set; }
+        public int CompletedToday { get; set; }
+        public string Route { get; set; }
+    }
+
+    public class QuickActionItem
+    {
+        public string Name { get; set; }
+        public string Icon { get; set; }
+    }
+
+    private UserDto? currentUser;
+    private bool isLoading = true;
+
+    private List<OperationItem> operations = new()
+    {
+        new() { Name = "生产任务", Icon = Icons.Material.Filled.FormatListBulleted, CompletedToday = 2, Route = "/TaskList" },
+        new() { Name = "粘蜗杆", Icon = Icons.Material.Filled.Build, CompletedToday = 24, Route = "/process_1" },
+        new() { Name = "手指组装", Icon = Icons.Material.Filled.PanToolAlt, CompletedToday = 18, Route = "/process_2" },
+        new() { Name = "手掌组装", Icon = Icons.Material.Filled.FrontHand, CompletedToday = 12, Route = "/process_3" },
+        new() { Name = "质量检测", Icon = Icons.Material.Filled.Verified, CompletedToday = 30, Route = "/barcode-scanner" },
+        new() { Name = "包装", Icon = Icons.Material.Filled.Inventory, CompletedToday = 22, Route = "/focus-example" },
+        new() { Name = "入库", Icon = Icons.Material.Filled.Warehouse, CompletedToday = 15, Route = "/storage" }
+    };
+
+    private List<QuickActionItem> quickActions = new()
+    {
+        new() { Name = "查询记录", Icon = Icons.Material.Filled.History },
+        new() { Name = "报错", Icon = Icons.Material.Filled.Report },
+        new() { Name = "帮助", Icon = Icons.Material.Filled.Help },
+        new() { Name = "设置", Icon = Icons.Material.Filled.Settings }
+    };
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            isLoading = true;
+            StateHasChanged();
+        
+            try
+            {
+                currentUser = await AuthService.GetCurrentUserAsync();
+                if (currentUser == null)
+                {
+                    NavManager.NavigateTo("/login", true);
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"加载用户信息失败: {ex.Message}");
+                NavManager.NavigateTo("/login", true);
+            }
+            finally
+            {
+                isLoading = false;
+                StateHasChanged();
+            }
+        }
+    }
+
+    private void NavigateToOperation(string route) => NavManager.NavigateTo(route);
+}
+
+<style>
+    .operation-button {
+        height: 80px;
+        font-size: 1.1rem;
+        margin: 0; 
+    }
+
+    .operation-card {
+        transition: box-shadow 0.3s ease;
+        padding: 0.5rem;
+    }
+
+    .operation-card:hover {
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.12) !important;
+    }
+
+    @@media (max-width: 600px) {
+        .mud-button-label {
+            font-size: 0.9rem;
+        }
+        .operation-button {
+            height: 70px;
+        }
+    }
+</style>

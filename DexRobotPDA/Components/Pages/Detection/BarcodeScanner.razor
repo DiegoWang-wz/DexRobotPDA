@@ -1,0 +1,274 @@
+﻿@page "/barcode-scanner"
+@inject ISnackbar Snackbar
+@implements IAsyncDisposable
+
+<MudContainer MaxWidth="MaxWidth.Medium" Class="my-8">
+    <MudCard Elevation="5" Class="p-6">
+        <MudCardContent>
+            <!-- 模式切换按钮 -->
+            <MudGrid Spacing="4" Class="mb-6">
+                <MudItem xs="12" Class="d-flex justify-content-end">
+                    <MudButton 
+                        Variant="Variant.Outlined" 
+                        Color="@(_isAutoMode ? Color.Success : Color.Primary)"
+                        OnClick="ToggleMode"
+                    >
+                        @(_isAutoMode ? "自动匹配模式" : "手动聚焦模式")
+                        <MudIcon Icon="@(_isAutoMode ? Icons.Material.Filled.AutoAwesome : Icons.Material.Filled.Man)" Class="ml-2" />
+                    </MudButton>
+                </MudItem>
+            </MudGrid>
+            
+            <!-- 第一个输入框和按钮 -->
+            <MudGrid Spacing="4" Class="mb-4">
+                <MudItem xs="10">
+                    <MudTextField T="string" @ref="firstInput" 
+                                  Label="输入框 1" 
+                                  Variant="Variant.Outlined" 
+                                  Id="input-1" />
+                </MudItem>
+                @if (!_isAutoMode)
+                {
+                    <MudItem xs="2">
+                        <MudButton OnClick="() => SetManualFocus(1)" Variant="Variant.Outlined" FullWidth>手动聚焦</MudButton>
+                    </MudItem>
+                }
+            </MudGrid>
+            
+            <!-- 第二个输入框和按钮 -->
+            <MudGrid Spacing="4" Class="mb-4">
+                <MudItem xs="10">
+                    <MudTextField T="string" @ref="secondInput" 
+                                  Label="输入框 2" 
+                                  Variant="Variant.Outlined"
+                                  Id="input-2" />
+                </MudItem>
+                @if (!_isAutoMode)
+                {
+                    <MudItem xs="2">
+                        <MudButton OnClick="() => SetManualFocus(2)" Variant="Variant.Outlined" FullWidth>手动聚焦</MudButton>
+                    </MudItem>
+                }
+            </MudGrid>
+            
+            <!-- 第三个输入框和按钮 -->
+            <MudGrid Spacing="4">
+                <MudItem xs="10">
+                    <MudTextField T="string" @ref="thirdInput" 
+                                  Label="输入框 3" 
+                                  Variant="Variant.Outlined"
+                                  Id="input-3" />
+                </MudItem>
+                @if (!_isAutoMode)
+                {
+                    <MudItem xs="2">
+                        <MudButton OnClick="() => SetManualFocus(3)" Variant="Variant.Outlined" FullWidth>手动聚焦</MudButton>
+                    </MudItem>
+                }
+            </MudGrid>
+        </MudCardContent>
+    </MudCard>
+</MudContainer>
+
+
+<MudCard Class="mt-4">
+    <MudCardContent>
+        <MudText Typo="Typo.h5" GutterBottom>条码扫描器</MudText>
+        <MudText>请使用扫码枪扫描条码</MudText>
+        
+        <!-- 状态指示器 -->
+        <div class="mt-4 d-flex items-center">
+            <MudCircle Color="@(_isActive ? Color.Success : Color.Error)" Size="Small" Class="mr-2" />
+            <MudText>扫描器状态: @(_isActive ? "正常" : "未就绪")</MudText>
+        </div>
+        
+        <!-- 隐藏的输入框用于接收扫码枪输入 -->
+        <input 
+            @ref="_barcodeInput" 
+            style="position:absolute; left:-9999px; top:-9999px;" 
+            @onfocusin="HandleInputFocus"
+            @onfocusout="HandleInputBlur"
+        />
+    </MudCardContent>
+</MudCard>
+
+@code {
+    private ElementReference _barcodeInput;
+    private DotNetObjectReference<BarcodeScanner>? _dotNetRef;
+    private bool _isActive;
+    private MudTextField<string> firstInput;
+    private MudTextField<string> secondInput;
+    private MudTextField<string> thirdInput;
+    private bool _isAutoMode = true;
+    private int _manualFocusIndex = 1;
+    private bool _shouldMaintainFocus = true;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            try
+            {
+                _dotNetRef = DotNetObjectReference.Create(this);
+                
+                // 初始化条码扫描器
+                await JSRuntime.InvokeVoidAsync(
+                    "BarcodeScanner.setup", 
+                    _dotNetRef, 
+                    _barcodeInput
+                );
+                
+                // 初始聚焦
+                await EnsureFocus();
+                _isActive = true;
+                Snackbar.Add("扫码枪已准备就绪", Severity.Info);
+                Snackbar.Add("当前为自动匹配模式", Severity.Info);
+            }
+            catch (Exception ex)
+            {
+                _isActive = false;
+                Snackbar.Add($"初始化失败: {ex.Message}", Severity.Error);
+            }
+        }
+    }
+
+    private async Task ToggleMode()
+    {
+        _isAutoMode = !_isAutoMode;
+        _shouldMaintainFocus = _isAutoMode;
+        
+        if (_isAutoMode)
+        {
+            Snackbar.Add("已切换到自动匹配模式", Severity.Info);
+            await EnsureFocus();
+        }
+        else
+        {
+            Snackbar.Add("已切换到手动聚焦模式", Severity.Info);
+            await SetManualFocus(_manualFocusIndex);
+        }
+    }
+
+    private async Task SetManualFocus(int index)
+    {
+        _manualFocusIndex = index;
+        _shouldMaintainFocus = false;
+        
+        switch (index)
+        {
+            case 1:
+                if (firstInput != null)
+                {
+                    await firstInput.FocusAsync();
+                    Snackbar.Add("已聚焦到输入框 1", Severity.Info);
+                }
+                break;
+            case 2:
+                if (secondInput != null)
+                {
+                    await secondInput.FocusAsync();
+                    Snackbar.Add("已聚焦到输入框 2", Severity.Info);
+                }
+                break;
+            case 3:
+                if (thirdInput != null)
+                {
+                    await thirdInput.FocusAsync();
+                    Snackbar.Add("已聚焦到输入框 3", Severity.Info);
+                }
+                break;
+        }
+    }
+
+    private async Task EnsureFocus()
+    {
+        if (_shouldMaintainFocus)
+        {
+            try
+            {
+                await _barcodeInput.FocusAsync();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"聚焦输入框失败: {ex.Message}");
+            }
+        }
+    }
+
+    private void HandleInputFocus(FocusEventArgs e)
+    {
+        _isActive = true;
+    }
+
+    private async Task HandleInputBlur(FocusEventArgs e)
+    {
+        _isActive = false;
+        
+        if (_shouldMaintainFocus)
+        {
+            await Task.Delay(100);
+            await EnsureFocus();
+            _isActive = true;
+        }
+    }
+
+    [JSInvokable]
+    public async Task ReceiveBarcode(string barcodeData)
+    {
+        if (!string.IsNullOrWhiteSpace(barcodeData))
+        {
+            Snackbar.Add($"扫描到条码: {barcodeData}", Severity.Success);
+            
+            if (_isAutoMode)
+            {
+                if (barcodeData.Contains("a") && firstInput != null)
+                {
+                    firstInput.Text = barcodeData;
+                    await firstInput.FocusAsync();
+                }
+                else if (barcodeData.Contains("b") && secondInput != null)
+                {
+                    secondInput.Text = barcodeData;
+                    await secondInput.FocusAsync();
+                }
+                else if (thirdInput != null)
+                {
+                    thirdInput.Text = barcodeData;
+                    await thirdInput.FocusAsync();
+                }
+            }
+            else
+            {
+                switch (_manualFocusIndex)
+                {
+                    case 1:
+                        if (firstInput != null) firstInput.Text = barcodeData;
+                        break;
+                    case 2:
+                        if (secondInput != null) secondInput.Text = barcodeData;
+                        break;
+                    case 3:
+                        if (thirdInput != null) thirdInput.Text = barcodeData;
+                        break;
+                }
+            }
+        }
+        
+        if (_isAutoMode)
+        {
+            await EnsureFocus();
+        }
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        _dotNetRef?.Dispose();
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("BarcodeScanner.cleanup");
+        }
+        catch { }
+        
+        GC.SuppressFinalize(this);
+    }
+}

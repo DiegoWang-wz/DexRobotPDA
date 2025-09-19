@@ -1,0 +1,79 @@
+﻿    @page "/focus-example"
+    @inject IJSRuntime JSRuntime
+    @implements IAsyncDisposable
+
+    <MudContainer MaxWidth="MaxWidth.Large" Class="mt-5">
+        <MudCard Elevation="5">
+            <MudCardContent Class="p-6">
+                <MudTextField  @bind-Value="taskId"
+                               Label="生产单号"
+                               Variant="Variant.Outlined">
+                    
+                </MudTextField>
+                <MudText Typo="Typo.h4" Class="mb-6">回车键切换按钮状态示例</MudText>
+
+                <MudGrid>
+                    <MudItem xs="12" sm="6">
+                        <MudButton
+                            @ref="toggleButton"
+                            Variant="buttonVariant"
+                            Color="buttonColor"
+                            OnClick="ToggleButtonState"
+                            Class="fs-5 px-8 py-6"
+                            FullWidth="true">
+                            @buttonText
+                        </MudButton>
+                    </MudItem>
+
+                    <MudItem xs="12" Class="mt-4">
+                        <MudAlert Severity="Severity.Info" Variant="Variant.Outlined">
+                            按下回车键可以切换按钮状态，也可以直接点击按钮进行切换
+                        </MudAlert>
+                    </MudItem>
+                </MudGrid>
+            </MudCardContent>
+        </MudCard>
+    </MudContainer>
+
+    @code {
+        private MudButton toggleButton;
+        private bool isActive = false;
+        private string buttonText => isActive ? "已激活" : "未激活";
+        private Variant buttonVariant => isActive ? Variant.Filled : Variant.Outlined;
+        private Color buttonColor => isActive ? Color.Success : Color.Default;
+        private string taskId;
+        private DotNetObjectReference<FocusExample>? dotNetRef;
+
+        protected override async Task OnAfterRenderAsync(bool firstRender)
+        {
+            if (firstRender)
+            {
+                dotNetRef = DotNetObjectReference.Create(this);
+                // 调用外部JS文件中的方法
+                await JSRuntime.InvokeVoidAsync("enterKeyHandler.initialize", dotNetRef);
+            }
+        }
+
+        [JSInvokable]
+        public void OnEnterKeyPressed()
+        {
+            ToggleButtonState();
+            StateHasChanged();
+        }
+
+        private void ToggleButtonState()
+        {
+            isActive = !isActive;
+            SnackbarHelper.Show(Snackbar, taskId, Severity.Info);
+        }
+
+        public async ValueTask DisposeAsync()
+        {
+            if (dotNetRef != null)
+            {
+                await JSRuntime.InvokeVoidAsync("enterKeyHandler.dispose");
+                dotNetRef.Dispose();
+            }
+        }
+    }
+    
