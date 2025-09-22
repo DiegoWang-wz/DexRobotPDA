@@ -1,14 +1,9 @@
-﻿@page "/process_1"
+﻿@page "/InputDetect"
 @inject TaskService TaskService
 @inject ProcessOneService ProcessOneService
 @inject IJSRuntime JSRuntime
-@inject BarcodeScannerService ScannerService
-@inject ISnackbar Snackbar
-@inject AuthService AuthService
-@inject NavigationManager NavManager
-@inject IDialogService DialogService
-@using DexRobotPDA.Components.Pages.Detection
 @implements IAsyncDisposable
+
 
 <MudPaper Elevation="3" Class="pa-4 ma-2 mx-md-20 my-md-4">
     <MudStack Row="true" Spacing="4" Class="d-flex align-center py-2">
@@ -17,13 +12,11 @@
             Label="生产单号"
             Variant="Variant.Outlined"
             Required="true"
+            @onfocus="ExitAutoFocusMode"
+            OnBlur="EnterAutoFocusMode"
             Clearable="true"
             Error="@hasInputError"
             ErrorText="请输入生产单号"
-            AutoFocus="true"
-            Id="taskId"
-            @onfocus="() => HandleSpecialInputFocus()"
-            @onblur="() => HandleSpecialInputBlur()"
             Class="flex-1"/>
 
         <MudButton
@@ -31,7 +24,6 @@
             Color="Color.Error"
             StartIcon="@Icons.Material.Filled.DeleteForever"
             OnClick="ClearTaskId"
-            Size="Size.Large"
             Class="w-full md:w-auto">
             清除
         </MudButton>
@@ -40,7 +32,6 @@
             Color="Color.Primary"
             StartIcon="@Icons.Material.Filled.Search"
             OnClick="LoadTaskDetail"
-            Size="Size.Large"
             Disabled="isLoading"
             Class="w-full md:w-auto">
             @(isLoading ? "查询中..." : "查询")
@@ -78,13 +69,21 @@
                         <div class="d-flex">
                             <MudText Typo="Typo.h6">任务明细 - @taskId</MudText>
                             <MudSpacer/>
-                            @if (task.process_1)
+                            @if (task.status == 1)
+                            {
+                                <MudChip T="string" Color="Color.Info">进行中</MudChip>
+                            }
+                            else if (task.status == 2)
                             {
                                 <MudChip T="string" Color="Color.Success">已完成</MudChip>
                             }
+                            else if (task.status == 3)
+                            {
+                                <MudChip T="string" Color="Color.Error">已取消</MudChip>
+                            }
                             else
                             {
-                                <MudChip T="string">未完成</MudChip>
+                                <MudChip T="string">未开始</MudChip>
                             }
                         </div>
                     </TitleContent>
@@ -114,110 +113,59 @@
                                 </MudList>
                             </MudPaper>
                         </div>
-                        <br>
-                        <MudTable Items="finishedMotors" Hover="true" FixedHeader="true"
-                                  SortLabel="Sort By" Elevation="3" Bordered="true" Striped="true"
-                                  Dense="true">
-                            <HeaderContent>
-                                <MudTh>
-                                    <MudTableSortLabel T="MotorDto"
-                                                       SortBy="@(context => finishedMotors.IndexOf(context) + 1)">序号
-                                    </MudTableSortLabel>
-                                </MudTh>
-
-                                <MudTh>
-                                    <MudTableSortLabel SortBy="(MotorDto x) => x.motor_id">电机ID</MudTableSortLabel>
-                                </MudTh>
-                                <MudTh>
-                                    <MudTableSortLabel SortBy="(MotorDto x) => x.task_id">任务ID</MudTableSortLabel>
-                                </MudTh>
-                                @* <MudTh> *@
-                                @*     <MudTableSortLabel SortBy="(MotorDto x) => x.worm_material_id">蜗杆物料ID *@
-                                @*     </MudTableSortLabel> *@
-                                @* </MudTh> *@
-                                @* <MudTh> *@
-                                @*     <MudTableSortLabel SortBy="(MotorDto x) => x.adhesive_material_id">胶粘剂物料ID *@
-                                @*     </MudTableSortLabel> *@
-                                @* </MudTh> *@
-                                <MudTh>
-                                    <MudTableSortLabel SortBy="(MotorDto x) => x.operator_id">操作员ID
-                                    </MudTableSortLabel>
-                                </MudTh>
-                                <MudTh>
-                                    <MudTableSortLabel SortBy="(MotorDto x) => x.created_at">创建时间
-                                    </MudTableSortLabel>
-                                </MudTh>
-                                <MudTh>
-                                    <MudTableSortLabel SortBy="(MotorDto x) => x.update_at">更新时间</MudTableSortLabel>
-                                </MudTh>
-                                <MudTh>
-                                    <MudTableSortLabel SortBy="(MotorDto x) => x.is_qualified">是否合格
-                                    </MudTableSortLabel>
-                                </MudTh>
-                                <MudTh>
-                                    <MudTableSortLabel SortBy="(MotorDto x) => x.remarks">备注</MudTableSortLabel>
-                                </MudTh>
-                                <MudTh>
-                                    <MudTableSortLabel SortBy="(MotorDto x) => x.finger_id">手指ID</MudTableSortLabel>
-                                </MudTh>
-                                <MudTh>操作</MudTh>
-                            </HeaderContent>
-                            <RowTemplate>
-                                <MudTd DataLabel="序号">@(finishedMotors.IndexOf(context) + 1)</MudTd>
-                                <MudTd DataLabel="电机ID">@context.motor_id</MudTd>
-                                <MudTd DataLabel="任务ID">@context.task_id</MudTd>
-                                @* <MudTd DataLabel="蜗杆物料ID">@context.worm_material_id</MudTd> *@
-                                @* <MudTd DataLabel="胶粘剂物料ID">@context.adhesive_material_id</MudTd> *@
-                                <MudTd DataLabel="操作员ID">@context.operator_id</MudTd>
-                                <MudTd DataLabel="创建时间">@context.created_at.ToString("yyyy-MM-dd HH:mm")</MudTd>
-                                <MudTd DataLabel="更新时间">@context.update_at?.ToString("yyyy-MM-dd HH:mm")</MudTd>
-                                <MudTd DataLabel="是否合格">
-                                    <MudChip T="string"
-                                             Color="@(context.is_qualified ? Color.Success : Color.Error)">@(context.is_qualified ? "是" : "否")</MudChip>
-                                </MudTd>
-                                <MudTd DataLabel="备注">@context.remarks</MudTd>
-                                <MudTd DataLabel="手指ID">@context.finger_id</MudTd>
-                                <MudTd DataLabel="操作">
-                                    <MudButton Variant="Variant.Filled" StartIcon="@Icons.Material.Filled.Edit" Color="Color.Info">修改
-                                    </MudButton>
-                                    <MudButton Variant="Variant.Filled" StartIcon="@Icons.Material.Filled.Delete" Color="Color.Error">删除
-                                    </MudButton>
-                                </MudTd>
-                            </RowTemplate>
-                        </MudTable>
                     </ChildContent>
                 </MudExpansionPanel>
             </MudExpansionPanels>
+            <MudDivider Class="my-4"/>
+            <MudStack Row="true" Spacing="4" Class="d-flex align-center py-2">
+                <MudButton
+                    Variant="Variant.Outlined"
+                    Color="@(_isAutoMode ? Color.Success : Color.Primary)"
+                    OnClick="ToggleMode"
+                    Size="Size.Medium">
+                    @(_isAutoMode ? "自动匹配模式" : "手动聚焦模式")
+                    <MudIcon Icon="@(_isAutoMode ? Icons.Material.Filled.AutoAwesome : Icons.Material.Filled.Man)"
+                             Class="ml-2"/>
+                </MudButton>
+                <MudSpacer/>
+                <MudButton Variant="Variant.Filled"
+                           Color="Color.Primary">
+                    已绑定数量@(finishedMotors.Count)/11
+                </MudButton>
+            </MudStack>
 
-
-            @if (finishedMotors.Count != 11)
-            {
-                <MudDivider Class="my-4"/>
-                <MudStack Row="true" Spacing="4" Class="d-flex align-center py-2">
-                    <MudButton
+            <MudForm Model="@_motorDto" @ref="form" Validation="@validation">
+                <MudFocusTrap DefaultFocus="DefaultFocus.FirstChild">
+                    @foreach (var input in _inputs)
+                    {
+                        @if (input.Id == "input-1")
+                        {
+                            <MudTextField T="string" @ref="input.FieldRef"
+                                          Label="@input.Label"
+                                          @bind-Value="_motorDto.motor_id"
+                                          Required="true"
+                                          Clearable="true"
+                                          Variant="Variant.Outlined"
+                                          Class="flex-1 mb-3"
+                                          Id="@input.Id"/>
+                        }
+                        else
+                        {
+                            <MudTextField T="string" @ref="input.FieldRef"
+                                          Label="@input.Label"
+                                          @bind-Value="_motorDto.remarks"
+                                          Clearable="true"
+                                          Variant="Variant.Outlined"
+                                          Class="flex-1 mb-3"
+                                          Id="@input.Id"/>
+                        }
+                    }
+                    <MudTextField
+                        @bind-Value="_motorDto.remarks"
+                        Label="备注"
                         Variant="Variant.Outlined"
-                        Color="@(ScannerService.IsAutoMode ? Color.Success : Color.Primary)"
-                        OnClick="ToggleScanModeAsync"
-                        Size="Size.Medium">
-                        @(ScannerService.IsAutoMode ? "自动匹配模式" : "手动聚焦模式")
-                        <MudIcon
-                            Icon="@(ScannerService.IsAutoMode ? Icons.Material.Filled.AutoAwesome : Icons.Material.Filled.Man)"
-                            Class="ml-2"/>
-                    </MudButton>
-                    <MudSpacer/>
-                    <MudButton Variant="Variant.Filled"
-                               Color="Color.Primary">
-                        已绑定数量@(finishedMotors.Count)/11
-                    </MudButton>
-                </MudStack>
-
-                <!-- 集成条码扫描组件 -->
-                <BarcodeScanner
-                    Inputs="scannerInputs"
-                    DetermineTargetInput="DetermineTargetInput"
-                    OnInputValueChanged="HandleInputValueChanged"/>
-
-                <MudDivider Class="my-4"/>
+                        Class="flex-1 mb-3"/>
+                </MudFocusTrap>
                 <MudButton OnClick="HandleBinding" Size="Size.Large" Variant="Variant.Filled" Color="Color.Primary"
                            FullWidth="true" Disabled="@isBinding">
                     @if (isBinding)
@@ -230,12 +178,28 @@
                         <MudText>绑定</MudText>
                     }
                 </MudButton>
-            }
+            </MudForm>
+            <br>
         }
     </div>
 </MudPaper>
 
+<input
+    @ref="_barcodeInput"
+    style="position:absolute; left:-9999px; top:-9999px;"
+    @onfocusin="HandleInputFocus"
+    @onfocusout="HandleInputBlur"
+/>
+
+
 @code {
+    private ElementReference _barcodeInput;
+    private DotNetObjectReference<InputDetect>? dotNetRef;
+    private bool _isActive;
+    private bool _isAutoMode = true;
+    private int _manualFocusIndex = 1;
+    private bool _autoFocusActive;
+
     private string taskId = string.Empty;
     private ProductTaskDto? task = null;
     private bool isLoading = false;
@@ -246,38 +210,11 @@
     private MudForm form;
     private bool validation = true;
     private AddMotorDto _motorDto = new AddMotorDto();
-    private DotNetObjectReference<ProcessOne>? dotNetRef;
-    private List<BarcodeScanner.InputField> scannerInputs = new();
 
-    protected override async Task OnInitializedAsync()
+    private List<InputField> _inputs = new()
     {
-        // 初始化扫描器输入框
-        scannerInputs = new List<BarcodeScanner.InputField>
-        {
-            // 电机编号 - 普通输入框
-            new BarcodeScanner.InputField
-            {
-                Index = 1,
-                Label = "电机编号",
-                Id = "motorId",
-                IsSpecialInput = false
-            },
-            // 备注 - 特殊输入框，点击会退出自动聚焦
-            new BarcodeScanner.InputField
-            {
-                Index = 2,
-                Label = "备注",
-                Id = "remarks",
-                IsSpecialInput = true
-            }
-        };
-    }
-
-    private async Task ToggleScanModeAsync()
-    {
-        await ScannerService.ToggleModeAsync();
-        StateHasChanged(); // 刷新按钮显示状态
-    }
+        new InputField { Index = 1, Label = "电机编号", Id = "input-1" },
+    };
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -286,6 +223,17 @@
             isLoading = true;
             StateHasChanged();
             dotNetRef = DotNetObjectReference.Create(this);
+
+            try
+            {
+                await JSRuntime.InvokeVoidAsync("BarcodeScanner.setup", dotNetRef, _barcodeInput);
+            }
+            catch (Exception ex)
+            {
+                _isActive = false;
+                Snackbar.Add($"初始化失败: {ex.Message}", Severity.Error);
+            }
+
             await JSRuntime.InvokeVoidAsync("enterKeyHandler.initialize", dotNetRef);
             try
             {
@@ -312,24 +260,6 @@
         }
     }
 
-    // 处理特殊输入框（任务单号）的聚焦事件
-    private void HandleSpecialInputFocus()
-    {
-        ScannerService.SetCurrentFocusedInputId("taskId");
-        _ = ScannerService.ExitAutoFocusModeAsync();
-    }
-
-    // 处理特殊输入框（任务单号）的失焦事件
-    private async Task HandleSpecialInputBlur()
-    {
-        if (ScannerService.IsAutoMode)
-        {
-            await ScannerService.EnterAutoFocusModeAsync();
-        }
-
-        await ScannerService.HandleInputBlurAsync();
-    }
-
     private void ClearTaskId()
     {
         taskId = string.Empty;
@@ -338,13 +268,6 @@
         hasInputError = false;
         finishedMotors.Clear();
         _motorDto = new AddMotorDto();
-
-        // 清空扫描器输入框
-        foreach (var input in scannerInputs)
-        {
-            input.Value = string.Empty;
-        }
-
         if (currentUser != null)
         {
             _motorDto.operator_id = currentUser.employee_id;
@@ -353,13 +276,14 @@
         StateHasChanged();
     }
 
-    // [JSInvokable]
-    // public async Task OnEnterKeyPressed()
-    // {
-    //     StateHasChanged();
-    //     await Task.Delay(1);
-    //     await LoadTaskDetail();
-    // }
+    [JSInvokable]
+    public async Task OnEnterKeyPressed()
+    {
+        StateHasChanged();
+        await Task.Delay(1);
+        await LoadTaskDetail();
+    }
+
 
     private async Task LoadTaskDetail()
     {
@@ -412,11 +336,8 @@
 
     private async Task HandleBinding()
     {
-        // 从扫描器输入框获取值
-        var motorIdInput = scannerInputs.FirstOrDefault(i => i.Id == "motorId");
-
         // 基本验证
-        if (motorIdInput == null || string.IsNullOrWhiteSpace(motorIdInput.Value))
+        if (string.IsNullOrWhiteSpace(_motorDto.motor_id))
         {
             SnackbarHelper.Show(Snackbar, "请输入电机编号", Severity.Warning);
             return;
@@ -426,21 +347,14 @@
 
         try
         {
-            // 更新绑定数据
-            _motorDto.motor_id = motorIdInput.Value;
-            _motorDto.remarks = scannerInputs.FirstOrDefault(i => i.Id == "remarks")?.Value ?? "";
-
             var response = await ProcessOneService.AddMotor(_motorDto);
 
             // 根据响应结果处理登录逻辑
             if (response != null && response.ResultCode == 1)
             {
                 SnackbarHelper.Show(Snackbar, "绑定成功！", Severity.Success);
-
-                // 清空输入框
-                motorIdInput.Value = "";
-                scannerInputs.FirstOrDefault(i => i.Id == "remarks").Value = "";
-
+                _motorDto.motor_id = "";
+                _motorDto.remarks = "";
                 await LoadTaskDetail();
             }
             else
@@ -451,7 +365,7 @@
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"绑定失败: {ex.Message}");
+            _ = ex;
             SnackbarHelper.Show(Snackbar, "绑定失败", Severity.Error);
         }
         finally
@@ -488,32 +402,149 @@
         }
     }
 
-    // 处理输入框值变化
-    private async Task HandleInputValueChanged(BarcodeScanner.InputField input)
+    #region 聚焦
+
+    private async Task ToggleMode()
     {
-        switch (input.Id)
+        if (_isAutoMode)
         {
-            case "motorId":
-                _motorDto.motor_id = input.Value;
-                break;
+            // 切换到手动模式
+            await ExitAutoFocusMode();
+            await ApplyManualFocus(_manualFocusIndex);
+            _isAutoMode = false;
+            Snackbar.Add("已切换到手动聚焦模式", Severity.Info);
+        }
+        else
+        {
+            // 切换到自动模式
+            await EnterAutoFocusMode();
+            _isAutoMode = true;
+            Snackbar.Add("已切换到自动匹配模式", Severity.Info);
         }
     }
 
-    // 确定条码数据应填入哪个输入框
-    private BarcodeScanner.InputField? DetermineTargetInput(string barcodeData)
-    {
-        var motorInput = scannerInputs.FirstOrDefault(i => i.Id == "motorId" && string.IsNullOrEmpty(i.Value));
-        if (motorInput != null) return motorInput;
+    #region 聚焦模式管理
 
-        // 电机编号已填写则返回备注输入框
-        return scannerInputs.FirstOrDefault(i => i.Id == "motorId");
+    private async Task EnterAutoFocusMode()
+    {
+        _autoFocusActive = true;
+        await EnsureAutoFocus();
     }
+
+    private Task ExitAutoFocusMode()
+    {
+        _autoFocusActive = false;
+        return Task.CompletedTask;
+    }
+
+    private async Task EnsureAutoFocus()
+    {
+        if (_autoFocusActive)
+        {
+            try
+            {
+                await _barcodeInput.FocusAsync();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"自动聚焦失败: {ex.Message}");
+            }
+        }
+    }
+
+    private async Task SetManualFocus(int index)
+    {
+        if (!_isAutoMode)
+        {
+            _manualFocusIndex = index;
+            await ApplyManualFocus(index);
+        }
+    }
+
+    private async Task ApplyManualFocus(int index)
+    {
+        var input = _inputs.FirstOrDefault(i => i.Index == index);
+        if (input?.FieldRef != null)
+        {
+            await input.FieldRef.FocusAsync();
+        }
+    }
+
+    #endregion
+
+    private void HandleInputFocus(FocusEventArgs e) => _isActive = true;
+
+    private async Task HandleInputBlur(FocusEventArgs e)
+    {
+        _isActive = false;
+
+        // 自动模式下维护焦点
+        if (_autoFocusActive)
+        {
+            await Task.Delay(100);
+            await EnsureAutoFocus();
+            _isActive = true;
+        }
+    }
+
+    [JSInvokable]
+    public async Task ReceiveBarcode(string barcodeData)
+    {
+        if (string.IsNullOrWhiteSpace(barcodeData)) return;
+
+        Snackbar.Add($"扫描到条码: {barcodeData}", Severity.Success);
+
+        if (_isAutoMode)
+        {
+            var targetInput = DetermineTargetInput(barcodeData);
+            if (targetInput != null)
+            {
+                // 直接更新绑定的数据模型
+                if (targetInput.Id == "input-1")
+                {
+                    _motorDto.motor_id = barcodeData;
+                }
+                StateHasChanged();
+
+                // 如果需要聚焦到该字段
+                if (targetInput.FieldRef != null)
+                {
+                    await targetInput.FieldRef.FocusAsync();
+                }
+            }
+
+            await EnsureAutoFocus();
+        }
+        else
+        {
+            var currentInput = _inputs.FirstOrDefault(i => i.Index == _manualFocusIndex);
+            if (currentInput != null)
+            {
+                // 直接更新绑定的数据模型
+                if (currentInput.Id == "input-1")
+                {
+                    _motorDto.motor_id = barcodeData;
+                }
+                StateHasChanged();
+            }
+        }
+    }
+
+
+    private InputField? DetermineTargetInput(string barcodeData)
+    {
+        if (barcodeData.Contains("mot")) return _inputs[0];
+        return _inputs[1];
+    }
+
+    #endregion
 
     public async ValueTask DisposeAsync()
     {
         if (dotNetRef != null)
         {
             await JSRuntime.InvokeVoidAsync("enterKeyHandler.dispose");
+            await JSRuntime.InvokeVoidAsync("BarcodeScanner.cleanup");
             dotNetRef.Dispose();
         }
 

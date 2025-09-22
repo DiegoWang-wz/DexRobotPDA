@@ -2,15 +2,11 @@
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
-using DexRobotPDA.DataModel;
 
 namespace DexRobotPDA.DataModel
 {
-    /// <summary>
-    /// 成品手掌表（记录手掌组装详情）
-    /// </summary>
-    [Table("Palms")]
-    public class PalmModel
+    [Table("Splits")]
+    public class SplitModel
     {
         /// <summary>
         /// 主键，自增ID
@@ -20,11 +16,11 @@ namespace DexRobotPDA.DataModel
         public long id { get; set; }
 
         /// <summary>
-        /// 成品手掌ID（支持Unicode，如PM-202409-001）
+        /// 成品手指ID（支持Unicode，如FG-202409-001）
         /// </summary>
         [Required]
         [MaxLength(64)]
-        public string palm_id { get; set; }
+        public string split_id { get; set; }
 
         /// <summary>
         /// 关联生产单号
@@ -39,30 +35,34 @@ namespace DexRobotPDA.DataModel
         [Required]
         [MaxLength(64)]
         public string operator_id { get; set; }
-
+        
         /// <summary>
-        /// 备注（如组装异常、质检说明）
+        /// 备注（如组装异常、特殊要求）
         /// </summary>
         public string? remarks { get; set; }
 
         /// <summary>
-        /// 手掌创建时间
+        /// 绑定成品手掌ID（允许为空，如未绑定手掌）
+        /// </summary>
+        [MaxLength(64)]
+        public string? palm_id { get; set; }
+
+        /// <summary>
+        /// 手指创建时间
         /// </summary>
         [Required]
         public DateTime created_at { get; set; } = DateTime.Now;
 
         /// <summary>
-        /// 手掌更新时间（自动更新）
+        /// 手指更新时间（自动更新）
         /// </summary>
         [Required]
         public DateTime? updated_at { get; set; } = DateTime.Now;
 
         // 导航属性
         public ProductTaskModel TaskModel { get; set; }
-        public MaterialModel PalmMaterial { get; set; }
+        public MaterialModel SplitMaterial { get; set; }
         public EmployeeModel Operator { get; set; }
-        public SplitModel Split { get; set; }
-        
-        public ICollection<FingerModel> Fingers { get; set; } = new List<FingerModel>();
+        public PalmModel Palm { get; set; }
     }
 }

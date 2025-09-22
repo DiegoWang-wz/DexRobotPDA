@@ -20,6 +20,7 @@ public class AutoMapperSetting : Profile
         CreateMap<ProductionBatchModel, ProductionBatchDto>().ReverseMap();
         CreateMap<MotorModel, MotorDto>().ReverseMap();
         CreateMap<FingerModel, FingerDto>().ReverseMap();
+        CreateMap<SplitModel, SplitDto>().ReverseMap();
         CreateMap<PalmModel, PalmDto>().ReverseMap();
         CreateMap<MaterialModel, MaterialDto>().ReverseMap();
         CreateMap<AddTaskDto, ProductTaskModel>()
@@ -53,6 +54,16 @@ public class AutoMapperSetting : Profile
             .ForMember(dest => dest.Operator, opt => opt.Ignore())
             .ForMember(dest => dest.Palm, opt => opt.Ignore())
             .ForMember(dest => dest.Motors, opt => opt.Ignore());
+        
+        CreateMap<AddSplitDto, SplitModel>()
+            .ForMember(dest => dest.id, opt => opt.Ignore())
+            .ForMember(dest => dest.palm_id, opt => opt.MapFrom(src => (string)null))
+            .ForMember(dest => dest.updated_at, opt => opt.MapFrom(src => DateTime.Now))
+            .ForMember(dest => dest.created_at, opt => opt.MapFrom(src => DateTime.Now))
+            .ForMember(dest => dest.TaskModel, opt => opt.Ignore())
+            .ForMember(dest => dest.SplitMaterial, opt => opt.Ignore())
+            .ForMember(dest => dest.Operator, opt => opt.Ignore())
+            .ForMember(dest => dest.Palm, opt => opt.Ignore());
 
         CreateMap<AddPalmDto, PalmModel>()
             .ForMember(dest => dest.id, opt => opt.Ignore())

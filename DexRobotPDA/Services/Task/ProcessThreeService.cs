@@ -76,4 +76,21 @@ public class ProcessThreeService : BaseService
         Console.WriteLine(responseJson);
         return apiResponse;
     }
+    
+    public async Task<ApiResponse> SplitBindPalm(string split_id, string palm_id)
+    {
+        var request = new RestRequest("api/Split/SplitBindPalm", Method.Post);
+        request.AddJsonBody(new { 
+            split_id = split_id, 
+            palm_id = palm_id
+        });
+        
+        var apiResponse = await ExecuteCommand(request);
+
+        var options = new JsonSerializerOptions { WriteIndented = true };
+        string responseJson = JsonSerializer.Serialize(apiResponse, options);
+        Console.WriteLine("更新任务流程状态API响应内容:");
+        Console.WriteLine(responseJson);
+        return apiResponse;
+    }
 }

@@ -6,23 +6,22 @@
 <MudCard Class="mx-auto" Style="max-width: 350px; margin-top: 200px;">
     <MudCardContent>
         <MudText Typo="Typo.h5" GutterBottom="true" Align="Align.Center">登录</MudText>
+        <MudFocusTrap DefaultFocus="DefaultFocus.FirstChild">
+            <MudTextField 
+                @bind-Value="EmployeeId" 
+                Label="用户名" 
+                Variant="Variant.Outlined" 
+                Required="true" 
+                AutoFocus="true"/> 
         
-        <MudTextField 
-            @bind-Value="EmployeeId" 
-            Label="用户名" 
-            Variant="Variant.Outlined" 
-            
-            Required="true" 
-            AutoFocus="true"/> <!-- 添加按键处理 -->
-        
-        <MudTextField 
-            @bind-Value="Password" 
-            Label="密码" 
-            Type="InputType.Password" 
-            Variant="Variant.Outlined" 
-            Required="true" 
-            Class="mt-4" /> <!-- 添加按键处理 -->
-        
+            <MudTextField 
+                @bind-Value="Password" 
+                Label="密码" 
+                InputType="InputType.Password"
+                Variant="Variant.Outlined" 
+                Required="true" 
+                Class="mt-4" /> 
+        </MudFocusTrap>
         <MudButton 
             OnClick="HandleLogin" 
             Color="Color.Primary" 

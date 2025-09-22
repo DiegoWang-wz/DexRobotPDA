@@ -96,6 +96,7 @@ namespace DexRobotPDA.DataModel
         public ICollection<ProductTaskModel> ProductTasks { get; set; } = new List<ProductTaskModel>();
         public ICollection<MotorModel> Motors { get; set; } = new List<MotorModel>();
         public ICollection<FingerModel> Fingers { get; set; } = new List<FingerModel>();
+        public ICollection<SplitModel> Splits { get; set; } = new List<SplitModel>();
         public ICollection<PalmModel> Palms { get; set; } = new List<PalmModel>();
     }
 }

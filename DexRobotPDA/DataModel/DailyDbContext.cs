@@ -12,6 +12,7 @@ namespace DexRobotPDA.DataModel
         public virtual DbSet<ProductionBatchModel> ProductionBatches { get; set; }
         public virtual DbSet<MotorModel> Motors { get; set; }
         public virtual DbSet<FingerModel> Fingers { get; set; }
+        public virtual DbSet<SplitModel> Splits { get; set; }
         public virtual DbSet<PalmModel> Palms { get; set; }
         public virtual DbSet<MaterialModel> Materials { get; set; }
 
@@ -139,6 +140,40 @@ namespace DexRobotPDA.DataModel
                     .HasPrincipalKey<MaterialModel>(mt => mt.material_id);
             });
             
+            // 配置SplitModel
+            modelBuilder.Entity<SplitModel>(entity =>
+            {
+                entity.HasKey(t => t.id);
+                entity.HasIndex(t => t.split_id).IsUnique(); 
+                entity.HasOne(s => s.TaskModel)
+                    .WithMany(t => t.Splits) // 假设ProductTaskModel有Splits集合
+                    .HasForeignKey(s => s.task_id)
+                    .HasPrincipalKey(t => t.task_id)
+                    .OnDelete(DeleteBehavior.Restrict); // 防止级联删除任务时删除Split
+
+                // 关联操作员（EmployeeModel）
+                entity.HasOne(s => s.Operator)
+                    .WithMany(e => e.Splits) // 假设EmployeeModel有Splits集合
+                    .HasForeignKey(s => s.operator_id)
+                    .HasPrincipalKey(e => e.employee_id)
+                    .OnDelete(DeleteBehavior.Restrict);
+
+                // 关联物料表（MaterialModel）
+                entity.HasOne(s => s.SplitMaterial)
+                    .WithOne(m => m.SplitMaterial) // 假设MaterialModel有Split导航属性
+                    .HasForeignKey<SplitModel>(s => s.split_id) // 外键为split_id
+                    .HasPrincipalKey<MaterialModel>(m => m.material_id)
+                    .OnDelete(DeleteBehavior.Restrict);
+
+                // 一对一关联PalmModel（核心配置）
+                entity.HasOne(s => s.Palm)
+                    .WithOne(p => p.Split)
+                    .HasForeignKey<SplitModel>(s => s.palm_id) // 外键在SplitModel
+                    .HasPrincipalKey<PalmModel>(p => p.palm_id)
+                    .OnDelete(DeleteBehavior.SetNull); // 若Palm删除，Split的palm_i
+                
+            });
+            
             // 配置PalmModel
             modelBuilder.Entity<PalmModel>(entity =>
             {
@@ -148,7 +183,12 @@ namespace DexRobotPDA.DataModel
                     .WithMany(b => b.Palms)
                     .HasForeignKey(m => m.task_id)
                     .HasPrincipalKey(t => t.task_id);
-
+                
+                entity.HasOne(p => p.Split)
+                    .WithOne(s => s.Palm)
+                    .HasForeignKey<SplitModel>(s => s.palm_id)
+                    .HasPrincipalKey<PalmModel>(p => p.palm_id);
+                
                 entity.HasOne(m => m.Operator)
                     .WithMany(e => e.Palms)
                     .HasForeignKey(m => m.operator_id)

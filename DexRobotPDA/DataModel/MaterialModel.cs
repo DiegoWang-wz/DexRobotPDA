@@ -98,6 +98,7 @@ namespace DexRobotPDA.DataModel
         
         public MotorModel MotorMaterial { get; set; }
         public FingerModel FingerShellMaterial { get; set; }
+        public SplitModel SplitMaterial { get; set; }
         public PalmModel PalmShellMaterial { get; set; }
         
     }
