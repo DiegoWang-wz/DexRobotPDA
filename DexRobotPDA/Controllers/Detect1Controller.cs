@@ -60,7 +60,7 @@ public class Detect1Controller : ControllerBase
                 response.ResultCode = 1;
                 response.Msg = "Success";
                 response.ResultData = detectDto;
-                _logger.LogInformation("成功获取电机 {MotorId} 的最新检测记录，检测ID: {DetectId}", 
+                _logger.LogInformation("成功获取电机 {MotorId} 的最新检测记录，检测ID: {DetectId}",
                     motor_id, latestDetect.id);
             }
         }
@@ -159,12 +159,29 @@ public class Detect1Controller : ControllerBase
     }
 
     [HttpPut]
-    public async Task<IActionResult> UpdateLatestDetect(UpdateDetect1Dto updateDto)
+    public async Task<IActionResult> UpdateLatestDetect(MotorWormDetectDto dto)
     {
+        if (!ModelState.IsValid)
+        {
+            var errors = ModelState.Values
+                .SelectMany(v => v.Errors)
+                .Select(e => e.ErrorMessage)
+                .ToList();
+
+            _logger.LogWarning("模型绑定失败，错误: {Errors}", string.Join(", ", errors));
+
+            ApiResponse response1 = new ApiResponse
+            {
+                ResultCode = -1,
+                Msg = "请求数据格式错误: " + string.Join(", ", errors)
+            };
+            return BadRequest(response1);
+        }
+
         ApiResponse response = new ApiResponse();
         try
         {
-            if (string.IsNullOrEmpty(updateDto.MotorId))
+            if (string.IsNullOrEmpty(dto.motor_id))
             {
                 response.ResultCode = -1;
                 response.Msg = "电机ID不能为空";
@@ -173,60 +190,59 @@ public class Detect1Controller : ControllerBase
             }
 
             var latestDetect = await db.Detect1
-                .Where(d => d.motor_id == updateDto.MotorId)
+                .Where(d => d.motor_id == dto.motor_id)
                 .OrderByDescending(d => d.id)
                 .FirstOrDefaultAsync();
 
             if (latestDetect == null)
             {
                 response.ResultCode = -1;
-                response.Msg = $"电机ID '{updateDto.MotorId}' 不存在检测记录，无法更新";
-                _logger.LogWarning("更新检测记录失败：未找到电机 {MotorId} 的检测记录", updateDto.MotorId);
+                response.Msg = $"电机ID '{dto.motor_id}' 不存在检测记录，无法更新";
+                _logger.LogWarning("更新检测记录失败：未找到电机 {MotorId} 的检测记录", dto.motor_id);
                 return BadRequest(response);
             }
 
-            if (updateDto.DistanceBefore.HasValue)
-                latestDetect.distance_before = updateDto.DistanceBefore;
+            // 直接使用DTO字段更新实体，保持字段名一致
+            if (dto.distance_before.HasValue)
+                latestDetect.distance_before = dto.distance_before;
 
-            if (updateDto.Force.HasValue)
-                latestDetect.force = updateDto.Force;
+            if (dto.force.HasValue)
+                latestDetect.force = dto.force;
 
-            if (updateDto.DistanceAfter.HasValue)
-                latestDetect.distance_after = updateDto.DistanceAfter;
+            if (dto.distance_after.HasValue)
+                latestDetect.distance_after = dto.distance_after;
 
-            if (updateDto.DistanceResult.HasValue)
-                latestDetect.distance_result = updateDto.DistanceResult;
-            else if (updateDto.DistanceBefore.HasValue && updateDto.DistanceAfter.HasValue)
+            if (dto.distance_result.HasValue)
+                latestDetect.distance_result = dto.distance_result;
+            else if (dto.distance_before.HasValue && dto.distance_after.HasValue)
                 // 计算距离结果时添加四舍五入
                 latestDetect.distance_result = Math.Round(
-                    updateDto.DistanceBefore.Value - updateDto.DistanceAfter.Value,
+                    dto.distance_before.Value - dto.distance_after.Value,
                     2
                 );
 
-            if (updateDto.UsingTime.HasValue)
-                latestDetect.using_time = updateDto.UsingTime;
+            if (dto.using_time.HasValue)
+                latestDetect.using_time = dto.using_time;
 
-            if (!string.IsNullOrEmpty(updateDto.InspectorId))
+            if (!string.IsNullOrEmpty(dto.inspector_id))
+                latestDetect.inspector_id = dto.inspector_id;
+
+            if (!string.IsNullOrEmpty(dto.remarks))
+                latestDetect.remarks = dto.remarks;
+
+            if (dto.if_qualified == true || dto.if_qualified == false)
             {
-                latestDetect.inspector_id = updateDto.InspectorId;
-            }
-
-            if (!string.IsNullOrEmpty(updateDto.Remarks))
-                latestDetect.remarks = updateDto.Remarks;
-
-            if (updateDto.IfQualified.HasValue)
-            {
-                latestDetect.if_qualified = updateDto.IfQualified;
+                latestDetect.if_qualified = dto.if_qualified;
             }
             else
             {
+                // 自动判断合格状态的逻辑保持不变
                 bool isQualified = false;
                 if (latestDetect.distance_before.HasValue && latestDetect.distance_after.HasValue)
                 {
                     double distanceDiff = latestDetect.distance_before.Value - latestDetect.distance_after.Value;
                     if (distanceDiff <= 0.02)
                     {
-                        // 条件2：投入使用时间距离蜗杆粘接时间大于三天（72小时）
                         if (latestDetect.combine_time.HasValue && latestDetect.using_time.HasValue)
                         {
                             TimeSpan timeDiff = latestDetect.using_time.Value - latestDetect.combine_time.Value;
@@ -241,13 +257,13 @@ public class Detect1Controller : ControllerBase
                 latestDetect.if_qualified = isQualified;
             }
 
-            // 5. 保存更新
+            // 保存更新
             db.Detect1.Update(latestDetect);
             await db.SaveChangesAsync();
 
-            // 6. 记录日志并返回结果
+            // 记录日志并返回结果
             _logger.LogInformation("成功更新电机 {MotorId} 的最新检测记录，检测ID: {DetectId}",
-                updateDto.MotorId, latestDetect.id);
+                dto.motor_id, latestDetect.id);
 
             response.ResultCode = 1;
             response.Msg = "检测记录更新成功";
@@ -255,7 +271,6 @@ public class Detect1Controller : ControllerBase
             {
                 detect_id = latestDetect.id,
                 motor_id = latestDetect.motor_id,
-                updated_fields = GetUpdatedFields(updateDto),
                 if_qualified = latestDetect.if_qualified
             };
 
@@ -271,7 +286,7 @@ public class Detect1Controller : ControllerBase
 
             response.ResultCode = -1;
             response.Msg = errorMsg;
-            _logger.LogError(dbEx, "更新电机 {MotorId} 的检测记录时数据库操作失败", updateDto?.MotorId);
+            _logger.LogError(dbEx, "更新电机 {MotorId} 的检测记录时数据库操作失败", dto?.motor_id);
 
             return BadRequest(response);
         }
@@ -279,26 +294,9 @@ public class Detect1Controller : ControllerBase
         {
             response.ResultCode = -1;
             response.Msg = "更新检测记录失败";
-            _logger.LogError(ex, "更新电机 {MotorId} 的检测记录时发生错误", updateDto?.MotorId);
+            _logger.LogError(ex, "更新电机 {MotorId} 的检测记录时发生错误", dto?.motor_id);
 
             return StatusCode(500, response);
         }
-    }
-
-// 辅助方法：获取已更新的字段列表，用于响应信息
-    private List<string> GetUpdatedFields(UpdateDetect1Dto dto)
-    {
-        var updatedFields = new List<string>();
-
-        if (dto.DistanceBefore.HasValue) updatedFields.Add("distance_before");
-        if (dto.Force.HasValue) updatedFields.Add("force");
-        if (dto.DistanceAfter.HasValue) updatedFields.Add("distance_after");
-        if (dto.DistanceResult.HasValue) updatedFields.Add("distance_result");
-        if (dto.UsingTime.HasValue) updatedFields.Add("using_time");
-        if (!string.IsNullOrEmpty(dto.InspectorId)) updatedFields.Add("inspector");
-        if (!string.IsNullOrEmpty(dto.Remarks)) updatedFields.Add("remarks");
-        if (dto.IfQualified.HasValue) updatedFields.Add("if_qualified");
-
-        return updatedFields;
     }
 }

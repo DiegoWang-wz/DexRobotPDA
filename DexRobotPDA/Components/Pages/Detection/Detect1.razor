@@ -45,7 +45,7 @@
     {
         <MudProgressLinear Color="Color.Primary" Indeterminate="true"/>
     }
-    else if (_detectDto?.id > 0) // 根据你的DTO结构调整这个条件
+    else if (_detectDto?.id > 0)
     {
         <MudGrid>
             <MudItem xs="12" sm="7">
@@ -57,27 +57,29 @@
                                       @bind-Value="_detectDto.motor_id"
                                       RequiredError="请输入电机编号"/>
 
-                        <MudTextField Class="my-2"  T="double?" Label="测试前的距离"
+                        <MudTextField Class="my-2" T="double?" Label="测试前的距离"
                                       @bind-Value="_detectDto.distance_before"
+                                      OnBlur="CalculateDistanceResult"
                                       Required="true"
                                       RequiredError="请输入测试前的距离"/>
 
-                        <MudTextField Class="my-2"  T="double?" Label="施加的力"
+                        <MudTextField Class="my-2" T="double?" Label="施加的力"
                                       @bind-Value="_detectDto.force"
                                       Required="true"
                                       RequiredError="请输入施加的力"/>
 
-                        <MudTextField Class="my-2"  T="double?" Label="测试后的距离"
+                        <MudTextField Class="my-2" T="double?" Label="测试后的距离"
                                       @bind-Value="_detectDto.distance_after"
+                                      OnBlur="CalculateDistanceResult"
                                       Required="true"
                                       RequiredError="请输入测试后的距离"/>
 
-                        <MudTextField Class="my-2"  T="double?" Label="距离差"
+                        <MudTextField Class="my-2" T="double?" Label="距离差"
                                       @bind-Value="_detectDto.distance_result"
                                       Required="true"
                                       RequiredError="请输入距离差"/>
-                        
-                        <MudDatePicker T="DateTime?" 
+
+                        <MudDatePicker T="DateTime?"
                                        Label="粘合时间"
                                        Disabled="true"
                                        @bind-Date="_detectDto.combine_time"
@@ -86,7 +88,7 @@
                                        AdornmentIcon="@Icons.Material.Filled.Event"
                                        Class="my-2"/>
 
-                        <MudDatePicker T="DateTime?" 
+                        <MudDatePicker T="DateTime?"
                                        Label="使用时间"
                                        Disabled="true"
                                        @bind-Date="_detectDto.using_time"
@@ -94,28 +96,33 @@
                                        Adornment="Adornment.End"
                                        AdornmentIcon="@Icons.Material.Filled.Event"
                                        Class="my-2"/>
-                          
-                        <MudTextField Class="my-2"  T="string?" Label="备注"
+                        <MudTextField Class="my-2" T="double?" Label="已过去的小时" Disabled="true"
+                                      @bind-Value="_timeDiffHours"
+                                      RequiredError="请输入距离差"/>
+
+
+                        <MudTextField Class="my-2" T="string?" Label="备注"
                                       @bind-Value="_detectDto.remarks"/>
-                                      
+
                         <div class="d-flex">
-                            <MudRadioGroup T="bool" 
-                                           @bind-SelectedOption="_detectDto.if_qualified" 
-                                           Required="true"
-                                           RequiredError="请选择合格状态">
-                                <MudRadio  Color="Color.Success" Value="@true">合格</MudRadio>
-                                <MudRadio  Color="Color.Secondary" Value="@false">不合格</MudRadio>
+                            <MudRadioGroup @bind-Value="_detectDto.if_qualified">
+                                <MudRadio Value="true" Color="Color.Success" Dense="true">合格</MudRadio>
+                                <MudRadio Value="false" Color="Color.Secondary" Dense="false">不合格</MudRadio>
                             </MudRadioGroup>
                         </div>
-                        
+
                         <div class="d-flex align-center justify-space-between">
                             <MudButton Variant="Variant.Filled"
                                        Color="Color.Primary"
+                                       OnClick="HandleSubmit"
                                        Disabled="@(!CanSubmit)"
                                        Class="ml-auto">
                                 提交检测结果
                             </MudButton>
                         </div>
+                        @* <MudText Typo="Typo.body2" Color="Color.Primary"> *@
+                        @*     当前选择状态: @(_detectDto.if_qualified.ToString() ?? "未选择") *@
+                        @* </MudText> *@
                     </MudForm>
                 </MudPaper>
             </MudItem>
@@ -158,6 +165,7 @@
             try
             {
                 currentUser = await AuthService.GetCurrentUserAsync();
+                StateHasChanged();
                 if (currentUser == null)
                 {
                     NavManager.NavigateTo("/login", true);
@@ -199,7 +207,6 @@
         await GetMotorWormDetect();
     }
 
-
     private async Task GetMotorWormDetect()
     {
         if (string.IsNullOrWhiteSpace(motor_id))
@@ -221,7 +228,12 @@
             {
                 _detectDto.using_time = DateTime.Now;
             }
-            hasSearched = true; // 添加搜索标记
+
+            _detectDto.force = 500.00;
+            _detectDto.inspector_id = currentUser?.employee_id;
+            CalculateDistanceResult();
+            CalculateTimeDiff();
+            hasSearched = true;
         }
         catch (Exception ex)
         {
@@ -232,32 +244,6 @@
         {
             isLoading = false;
             StateHasChanged();
-        }
-    }
-
-    private bool isBinding = false;
-
-    private async Task HandleBinding()
-    {
-        if (motor_id == null || string.IsNullOrWhiteSpace(motor_id))
-        {
-            SnackbarHelper.Show(Snackbar, "请输入电机编号", Severity.Warning);
-            return;
-        }
-
-        isBinding = true;
-
-        try
-        {
-        }
-        catch (Exception e)
-        {
-            Console.WriteLine(e);
-            throw;
-        }
-        finally
-        {
-            isBinding = false;
         }
     }
 
@@ -272,12 +258,13 @@
         GC.SuppressFinalize(this);
     }
 
-
     bool success;
     string[] errors = { };
-    
+    MudTextField<string> pwField1;
+    MudForm form;
+
     private bool CanSubmit => CheckRequiredFields();
-    
+
     private bool CheckRequiredFields()
     {
         // 只检查数值字段是否填写，不检查单选按钮
@@ -286,33 +273,127 @@
                _detectDto.distance_after.HasValue &&
                _detectDto.distance_result.HasValue;
     }
-    
-    MudTextField<string> pwField1;
-    MudForm form;
 
-    private IEnumerable<string> PasswordStrength(string pw)
+    private void CalculateDistanceResult()
     {
-        if (string.IsNullOrWhiteSpace(pw))
+        if (_detectDto.distance_before.HasValue && _detectDto.distance_after.HasValue)
         {
-            yield return "Password is required!";
-            yield break;
+            _detectDto.distance_result = Math.Round(
+                _detectDto.distance_before.Value - _detectDto.distance_after.Value,
+                2
+            );
+            StateHasChanged();
+        }
+    }
+
+    private double? _timeDiffHours;
+
+    private void CalculateTimeDiff()
+    {
+        // 仅当两个时间都不为空时计算
+        if (_detectDto.combine_time.HasValue && _detectDto.using_time.HasValue)
+        {
+            // 计算时间差（注意：使用时间不能早于粘结时间，需处理异常情况）
+            TimeSpan timeDiff = _detectDto.using_time.Value - _detectDto.combine_time.Value;
+
+            if (timeDiff.TotalHours >= 0)
+            {
+                _timeDiffHours = Math.Round(timeDiff.TotalHours, 1); // 保留1位小数，更易读
+            }
+            else
+            {
+                _timeDiffHours = null; // 使用时间早于粘结时间时，显示空值
+                Snackbar.Add("使用时间不能早于粘结时间", Severity.Warning);
+            }
+        }
+        else
+        {
+            _timeDiffHours = null; // 任一时间为空时，清空小时差
+        }
+    }
+
+    private bool isSubmitting = false;
+
+    private async Task HandleSubmit()
+    {
+        CalculateDistanceResult();
+
+        // 先输出表单验证状态
+        Console.WriteLine($"表单验证状态: {form.IsValid}");
+        Console.WriteLine($"错误数量: {errors.Length}");
+
+        if (errors.Length > 0)
+        {
+            Console.WriteLine("表单错误详情:");
+            foreach (var error in errors)
+            {
+                Console.WriteLine($"- {error}");
+            }
         }
 
-        if (pw.Length < 8)
-            yield return "Password must be at least of length 8";
-        if (!Regex.IsMatch(pw, @"[A-Z]"))
-            yield return "Password must contain at least one capital letter";
-        if (!Regex.IsMatch(pw, @"[a-z]"))
-            yield return "Password must contain at least one lowercase letter";
-        if (!Regex.IsMatch(pw, @"[0-9]"))
-            yield return "Password must contain at least one digit";
-    }
+        if (form.IsValid)
+        {
+            try
+            {
+                isSubmitting = true;
 
-    private string PasswordMatch(string arg)
-    {
-        if (pwField1.Value != arg)
-            return "Passwords don't match";
-        return null;
-    }
+                // 检查关键字段
+                Console.WriteLine("=== 提交前数据检查 ===");
+                Console.WriteLine($"电机编号: {_detectDto.motor_id}");
+                Console.WriteLine($"检测员ID: {currentUser?.employee_id}");
+                Console.WriteLine($"距离前: {_detectDto.distance_before}");
+                Console.WriteLine($"距离后: {_detectDto.distance_after}");
+                Console.WriteLine($"距离差: {_detectDto.distance_result}");
+                Console.WriteLine($"是否合格: {_detectDto.if_qualified}");
+                Console.WriteLine("====================");
 
+
+                // 检查DTO是否完整
+                if (string.IsNullOrEmpty(_detectDto.motor_id))
+                {
+                    Snackbar.Add("电机编号不能为空", Severity.Error);
+                    return;
+                }
+
+                if (string.IsNullOrEmpty(_detectDto.inspector_id))
+                {
+                    Snackbar.Add("检测员信息缺失，请重新登录", Severity.Error);
+                    return;
+                }
+
+                var response = await DetectService.UpdateDetect1(_detectDto);
+
+                Console.WriteLine($"API 响应结果: ResultCode = {response?.ResultCode}, Msg = {response?.Msg}");
+
+                if (response?.ResultCode == 1)
+                {
+                    Snackbar.Add("提交成功", Severity.Success);
+                }
+                else
+                {
+                    Snackbar.Add($"提交失败：{response?.Msg}", Severity.Error);
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"提交异常: {ex.Message}");
+                Console.WriteLine($"异常堆栈: {ex.StackTrace}");
+                Snackbar.Add($"提交异常：{ex.Message}", Severity.Error);
+            }
+            finally
+            {
+                isSubmitting = false;
+            }
+        }
+        else
+        {
+            Console.WriteLine("表单验证失败，存在以下错误:");
+            foreach (var error in errors)
+            {
+                Console.WriteLine($"- {error}");
+            }
+
+            Snackbar.Add("表单存在错误，请检查后提交", Severity.Warning);
+        }
+    }
 }

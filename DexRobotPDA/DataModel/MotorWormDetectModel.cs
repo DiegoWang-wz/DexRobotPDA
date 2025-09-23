@@ -28,7 +28,7 @@ public class MotorWormDetectModel
     
     public string? remarks { get; set; }
     
-    public bool? if_qualified { get; set; }
+    public bool if_qualified { get; set; }
     
     public EmployeeModel Inspector { get; set; }
     public MotorModel Motor { get; set; }

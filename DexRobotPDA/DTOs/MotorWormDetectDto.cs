@@ -22,5 +22,5 @@ public class MotorWormDetectDto
     
     public string? remarks { get; set; }
     
-    public bool? if_qualified { get; set; }
+    public bool if_qualified { get; set; }
 }
