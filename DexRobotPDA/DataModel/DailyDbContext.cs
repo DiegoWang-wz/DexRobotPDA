@@ -15,6 +15,7 @@ namespace DexRobotPDA.DataModel
         public virtual DbSet<SplitModel> Splits { get; set; }
         public virtual DbSet<PalmModel> Palms { get; set; }
         public virtual DbSet<MaterialModel> Materials { get; set; }
+        public virtual DbSet<MotorWormDetectModel> Detect1 { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -206,6 +207,23 @@ namespace DexRobotPDA.DataModel
             {
                 entity.HasKey(t => t.id);
                 entity.HasIndex(t => t.material_id).IsUnique();
+            });
+            
+            modelBuilder.Entity<MotorWormDetectModel>(entity =>
+            {
+                entity.HasKey(t => t.id);
+                
+                entity.HasOne(m => m.Motor)
+                    .WithMany(m => m.Detect1)
+                    .HasForeignKey(m => m.motor_id)
+                    .HasPrincipalKey(t => t.motor_id)
+                    .IsRequired(false);
+                
+                entity.HasOne(m => m.Inspector)
+                    .WithMany(m => m.Detect1)
+                    .HasForeignKey(m => m.inspector_id)
+                    .HasPrincipalKey(t => t.employee_id)
+                    .IsRequired(false);
             });
         }
     }

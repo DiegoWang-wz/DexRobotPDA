@@ -84,5 +84,7 @@ namespace DexRobotPDA.DataModel
         public MaterialModel AdhesiveMaterial { get; set; }
         public EmployeeModel Operator { get; set; }
         public FingerModel Finger { get; set; }
+        
+        public ICollection<MotorWormDetectModel> Detect1 { get; set; } = new List<MotorWormDetectModel>();
     }
 }

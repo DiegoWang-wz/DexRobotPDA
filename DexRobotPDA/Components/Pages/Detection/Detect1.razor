@@ -1,0 +1,318 @@
+﻿@page "/Detect1"
+@implements IAsyncDisposable
+@using System.Text.RegularExpressions
+@using System.ComponentModel.DataAnnotations
+@using System.Dynamic
+
+<MudPaper Elevation="3" Class="pa-4 ma-2 mx-md-20 my-md-4">
+    <MudStack Row="true" Spacing="4" Class="d-flex align-center py-2">
+        <MudTextField
+            @bind-Value="motor_id"
+            Label="电机编号"
+            Variant="Variant.Outlined"
+            Required="true"
+            Clearable="true"
+            Error="@hasInputError"
+            ErrorText="请输入电机编号"
+            AutoFocus="true"
+            Id="taskId"
+            @onblur="() => GetMotorWormDetect()"
+            Class="flex-1"/>
+
+        <MudButton
+            Variant="Variant.Filled"
+            Color="Color.Error"
+            StartIcon="@Icons.Material.Filled.DeleteForever"
+            OnClick="ClearTaskId"
+            Size="Size.Large"
+            Class="w-full md:w-auto">
+            清除
+        </MudButton>
+        <MudButton
+            Variant="Variant.Filled"
+            Color="Color.Primary"
+            StartIcon="@Icons.Material.Filled.Search"
+            OnClick="GetMotorWormDetect"
+            Size="Size.Large"
+            Disabled="isLoading"
+            Class="w-full md:w-auto">
+            @(isLoading ? "查询中..." : "查询")
+        </MudButton>
+    </MudStack>
+
+    <MudDivider Class="my-4"/>
+    @if (isLoading)
+    {
+        <MudProgressLinear Color="Color.Primary" Indeterminate="true"/>
+    }
+    else if (_detectDto?.id > 0) // 根据你的DTO结构调整这个条件
+    {
+        <MudGrid>
+            <MudItem xs="12" sm="7">
+                <MudPaper Class="pa-4">
+                    <MudForm @ref="form" @bind-Errors="@errors" Model="@_detectDto">
+                        <!-- 电机编号 -->
+                        <MudTextField Class="my-2" Label="电机编号"
+                                      Disabled="true"
+                                      @bind-Value="_detectDto.motor_id"
+                                      RequiredError="请输入电机编号"/>
+
+                        <MudTextField Class="my-2"  T="double?" Label="测试前的距离"
+                                      @bind-Value="_detectDto.distance_before"
+                                      Required="true"
+                                      RequiredError="请输入测试前的距离"/>
+
+                        <MudTextField Class="my-2"  T="double?" Label="施加的力"
+                                      @bind-Value="_detectDto.force"
+                                      Required="true"
+                                      RequiredError="请输入施加的力"/>
+
+                        <MudTextField Class="my-2"  T="double?" Label="测试后的距离"
+                                      @bind-Value="_detectDto.distance_after"
+                                      Required="true"
+                                      RequiredError="请输入测试后的距离"/>
+
+                        <MudTextField Class="my-2"  T="double?" Label="距离差"
+                                      @bind-Value="_detectDto.distance_result"
+                                      Required="true"
+                                      RequiredError="请输入距离差"/>
+                        
+                        <MudDatePicker T="DateTime?" 
+                                       Label="粘合时间"
+                                       Disabled="true"
+                                       @bind-Date="_detectDto.combine_time"
+                                       DateFormat="yyyy-MM-dd HH:mm:ss"
+                                       Adornment="Adornment.End"
+                                       AdornmentIcon="@Icons.Material.Filled.Event"
+                                       Class="my-2"/>
+
+                        <MudDatePicker T="DateTime?" 
+                                       Label="使用时间"
+                                       Disabled="true"
+                                       @bind-Date="_detectDto.using_time"
+                                       DateFormat="yyyy-MM-dd HH:mm:ss"
+                                       Adornment="Adornment.End"
+                                       AdornmentIcon="@Icons.Material.Filled.Event"
+                                       Class="my-2"/>
+                          
+                        <MudTextField Class="my-2"  T="string?" Label="备注"
+                                      @bind-Value="_detectDto.remarks"/>
+                                      
+                        <div class="d-flex">
+                            <MudRadioGroup T="bool" 
+                                           @bind-SelectedOption="_detectDto.if_qualified" 
+                                           Required="true"
+                                           RequiredError="请选择合格状态">
+                                <MudRadio  Color="Color.Success" Value="@true">合格</MudRadio>
+                                <MudRadio  Color="Color.Secondary" Value="@false">不合格</MudRadio>
+                            </MudRadioGroup>
+                        </div>
+                        
+                        <div class="d-flex align-center justify-space-between">
+                            <MudButton Variant="Variant.Filled"
+                                       Color="Color.Primary"
+                                       Disabled="@(!CanSubmit)"
+                                       Class="ml-auto">
+                                提交检测结果
+                            </MudButton>
+                        </div>
+                    </MudForm>
+                </MudPaper>
+            </MudItem>
+            <MudItem xs="12" sm="5">
+                <MudPaper Class="pa-4 mud-height-full">
+                    <MudText Typo="Typo.subtitle2">@($"Errors ({errors.Length})")</MudText>
+                    @foreach (var error in errors)
+                    {
+                        <MudText Color="@Color.Error">@error</MudText>
+                    }
+                </MudPaper>
+            </MudItem>
+        </MudGrid>
+    }
+    else if (hasSearched)
+    {
+        <MudText Align="Align.Center" Color="Color.Warning">
+            未查询到相关数据
+        </MudText>
+    }
+</MudPaper>
+
+@code {
+    private string motor_id = string.Empty;
+    private bool isLoading = false;
+    private bool hasInputError = false;
+    private bool hasSearched = false;
+    private UserDto? currentUser;
+    private DotNetObjectReference<Detect1>? dotNetRef;
+    private MotorWormDetectDto _detectDto = new();
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            isLoading = true;
+            StateHasChanged();
+            dotNetRef = DotNetObjectReference.Create(this);
+            await JSRuntime.InvokeVoidAsync("enterKeyHandler.initialize", dotNetRef);
+            try
+            {
+                currentUser = await AuthService.GetCurrentUserAsync();
+                if (currentUser == null)
+                {
+                    NavManager.NavigateTo("/login", true);
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"加载用户信息失败: {ex.Message}");
+                NavManager.NavigateTo("/login", true);
+            }
+            finally
+            {
+                isLoading = false;
+                StateHasChanged();
+            }
+        }
+    }
+
+    private void ClearTaskId()
+    {
+        motor_id = string.Empty;
+        hasSearched = false;
+        hasInputError = false;
+        _detectDto = new MotorWormDetectDto();
+
+        if (currentUser != null)
+        {
+            _detectDto.inspector_id = currentUser.employee_id;
+        }
+
+        StateHasChanged();
+    }
+
+    [JSInvokable]
+    public async Task OnEnterKeyPressed()
+    {
+        StateHasChanged();
+        await Task.Delay(1);
+        await GetMotorWormDetect();
+    }
+
+
+    private async Task GetMotorWormDetect()
+    {
+        if (string.IsNullOrWhiteSpace(motor_id))
+        {
+            hasInputError = true;
+            StateHasChanged();
+            return;
+        }
+
+        hasInputError = false;
+        isLoading = true;
+        StateHasChanged();
+
+        try
+        {
+            var result = await DetectService.GetMotorWormDetect(motor_id);
+            _detectDto = result;
+            if (_detectDto.using_time == null || _detectDto.using_time == DateTime.MinValue)
+            {
+                _detectDto.using_time = DateTime.Now;
+            }
+            hasSearched = true; // 添加搜索标记
+        }
+        catch (Exception ex)
+        {
+            _detectDto = new MotorWormDetectDto();
+            SnackbarHelper.Show(Snackbar, "加载失败", Severity.Error);
+        }
+        finally
+        {
+            isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private bool isBinding = false;
+
+    private async Task HandleBinding()
+    {
+        if (motor_id == null || string.IsNullOrWhiteSpace(motor_id))
+        {
+            SnackbarHelper.Show(Snackbar, "请输入电机编号", Severity.Warning);
+            return;
+        }
+
+        isBinding = true;
+
+        try
+        {
+        }
+        catch (Exception e)
+        {
+            Console.WriteLine(e);
+            throw;
+        }
+        finally
+        {
+            isBinding = false;
+        }
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (dotNetRef != null)
+        {
+            await JSRuntime.InvokeVoidAsync("enterKeyHandler.dispose");
+            dotNetRef.Dispose();
+        }
+
+        GC.SuppressFinalize(this);
+    }
+
+
+    bool success;
+    string[] errors = { };
+    
+    private bool CanSubmit => CheckRequiredFields();
+    
+    private bool CheckRequiredFields()
+    {
+        // 只检查数值字段是否填写，不检查单选按钮
+        return _detectDto.distance_before.HasValue &&
+               _detectDto.force.HasValue &&
+               _detectDto.distance_after.HasValue &&
+               _detectDto.distance_result.HasValue;
+    }
+    
+    MudTextField<string> pwField1;
+    MudForm form;
+
+    private IEnumerable<string> PasswordStrength(string pw)
+    {
+        if (string.IsNullOrWhiteSpace(pw))
+        {
+            yield return "Password is required!";
+            yield break;
+        }
+
+        if (pw.Length < 8)
+            yield return "Password must be at least of length 8";
+        if (!Regex.IsMatch(pw, @"[A-Z]"))
+            yield return "Password must contain at least one capital letter";
+        if (!Regex.IsMatch(pw, @"[a-z]"))
+            yield return "Password must contain at least one lowercase letter";
+        if (!Regex.IsMatch(pw, @"[0-9]"))
+            yield return "Password must contain at least one digit";
+    }
+
+    private string PasswordMatch(string arg)
+    {
+        if (pwField1.Value != arg)
+            return "Passwords don't match";
+        return null;
+    }
+
+}
