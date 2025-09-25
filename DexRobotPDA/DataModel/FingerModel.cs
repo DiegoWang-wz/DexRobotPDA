@@ -62,6 +62,8 @@ namespace DexRobotPDA.DataModel
         [Required]
         public DateTime? updated_at { get; set; } = DateTime.Now;
 
+        [Required]
+        public bool is_qualified { get; set; } = false;
         // 导航属性
         public ProductTaskModel TaskModel { get; set; }
         public MaterialModel FingerMaterial { get; set; }

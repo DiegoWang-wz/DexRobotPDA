@@ -1,11 +1,12 @@
 ﻿@page "/tasklist"
 @inject TaskService TaskService
 @implements IBrowserViewportObserver
+@using DexRobotPDA.Components.Pages.Components
 @implements IAsyncDisposable
 
 <MudPaper Elevation="3" Class="pa-4 ma-2 mx-md-8">
-    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
-        <MudItem xs="12" md="8">
+    <MudStack Row="true" Spacing="4" Class="d-flex align-center py-2">
+        <MudItem xs="12" md="7">
             <MudDateRangePicker
                 @bind-DateRange="@_dateRange"
                 Clearable="true"
@@ -14,16 +15,27 @@
                 Margin="Margin.Dense"
                 Class="w-100"/>
         </MudItem>
-        <MudItem xs="12" md="4" Class="d-flex justify-end">
+        <MudSpacer/>
+        <MudItem xs="12" md="5" Class="d-flex justify-end">
+            <MudButton
+                Variant="Variant.Filled"
+                Color="Color.Warning"
+                OnClick="@(() => OpenDialogAsync(_addTaskDialog))"
+                StartIcon="@Icons.Material.Filled.ControlPoint"
+                Class="mx-1">
+                新增任务
+            </MudButton>
             <MudButton
                 Variant="Variant.Filled"
                 Color="Color.Primary"
                 StartIcon="@Icons.Material.Filled.Search"
-                Class="w-full md:w-auto"
-                OnClick="LoadTasks">
+                OnClick="LoadTasks"
+                Class="mx-1">
                 获取任务
             </MudButton>
         </MudItem>
+
+       
     </MudStack>
 </MudPaper>
 
@@ -134,6 +146,17 @@
     [Inject] private IBrowserViewportService ViewportService { get; set; }
     private Breakpoint _currentBreakpoint = Breakpoint.Xs;
 
+    private readonly DialogOptions _addTaskDialog = new() { MaxWidth = MaxWidth.Medium, FullWidth = true };
+    private async Task OpenDialogAsync(DialogOptions options)
+    {
+        var dialog  = await DialogService.ShowAsync<AddTaskDialog>("", options);
+        var result = await dialog.Result;
+        if (!result.Canceled)
+        {
+            await LoadTasks();
+        }
+    }
+    
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (firstRender)

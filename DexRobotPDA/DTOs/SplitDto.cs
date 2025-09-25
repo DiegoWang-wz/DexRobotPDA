@@ -18,4 +18,6 @@ public class SplitDto
 
     public DateTime? updated_at { get; set; } = DateTime.Now;
     
+    public bool is_qualified { get; set; } = false;
+    
 }

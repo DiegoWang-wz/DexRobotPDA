@@ -1,7 +1,13 @@
 ﻿@page "/TaskDetail"
 @page "/TaskDetail/{taskId}"
+@page "/TaskDetail/{taskId}/{stepIndex:int}" // 添加新的路由，支持stepIndex参数
 @inject ProcessOneService ProcessOneService
+@inject ProcessTwoService ProcessTwoService
+@inject ProcessThreeService ProcessThreeService
 @inject TaskService TaskService
+@inject ISnackbar Snackbar
+@inject IDialogService DialogService
+@inject NavigationManager NavigationManager
 
 @if (isLoading)
 {
@@ -24,32 +30,42 @@ else
                 <div class="d-flex">
                     <MudText Typo="Typo.h6">任务明细 - @taskId</MudText>
                     <MudSpacer/>
-                    @if (task.status == 1)
-                    {
-                        <MudChip T="string" Color="Color.Info">进行中</MudChip>
-                    }
-                    else if (task.status == 2)
-                    {
-                        <MudChip T="string" Color="Color.Success">已完成</MudChip>
-                    }
-                    else if (task.status == 3)
-                    {
-                        <MudChip T="string" Color="Color.Error">已取消</MudChip>
-                    }
-                    else
-                    {
-                        <MudChip T="string">未开始</MudChip>
-                    }
+                    <MudChip T="string"
+                             Color="GetStatusColor(task.status)">@GetStatusText(task.status)</MudChip>
                 </div>
             </TitleContent>
             <ChildContent>
-                Panel Content
+                <div class="d-flex flex-column flex-md-row w-100">
+                    <MudPaper Width="360px" Class="my-2 mx-1">
+                        <MudList T="string">
+                            <MudListItem Text="@($"任务标题：{task.title ?? ""}")"
+                                         Icon="@Icons.Material.Filled.Subtitles"/>
+                            <MudListItem Text="@($"任务描述：{task.description ?? ""}")"
+                                         Icon="@Icons.Material.Filled.Dehaze"/>
+                            <MudListItem
+                                Text="@($"优先级：{(task.priority == 1 ? "低" : task.priority == 2 ? "中" : task.priority == 3 ? "高" : "")}")"
+                                Icon="@Icons.Material.Filled.PriorityHigh"/>
+                        </MudList>
+                    </MudPaper>
+                    <MudPaper Width="360px" Class="my-2 mx-1">
+                        <MudList T="string">
+                            <MudListItem Text="@($"负责人：{task.assignee_id ?? ""}")"
+                                         Icon="@Icons.Material.Filled.ManageAccounts"/>
+                            <MudListItem
+                                Text="@($"创建日期：{task.created_at.ToString("yyyy-MM-dd HH:mm:ss") ?? ""}")"
+                                Icon="@Icons.Material.Filled.CalendarMonth"/>
+                            <MudListItem
+                                Text="@($"更新日期：{task.updated_at.ToString("yyyy-MM-dd HH:mm:ss") ?? ""}")"
+                                Icon="@Icons.Material.Filled.EditCalendar"/>
+                        </MudList>
+                    </MudPaper>
+                </div>
             </ChildContent>
         </MudExpansionPanel>
     </MudExpansionPanels>
 
     <MudPaper Class="ma-2 pa-md-4 mx-md-8" Elevation="3">
-        <MudStepper NonLinear="true" @bind-ActiveIndex="_index" NavClass="border-b mud-border-lines-default"
+        <MudStepper NonLinear="true" @bind-ActiveIndex="currentStepIndex" NavClass="border-b mud-border-lines-default"
                     OnPreviewInteraction="OnPreviewInteraction"
                     StepClass="pt-4" ShowResetButton>
             <TitleTemplate>@**@</TitleTemplate>
@@ -90,32 +106,303 @@ else
                 }
             </LabelTemplate>
             <ChildContent>
+                <!-- 1. 电机表格（带加载效果） -->
                 <MudStep Completed="task.process_1" Title="1.电机粘蜗杆">
-                    Check-in Step 1:
+                    @if (isMotorTableLoading)
+                    {
+                        <div class="d-flex justify-content-center align-items-center py-10">
+                            <MudText Typo="Typo.body1" Color="Color.Secondary">加载中...</MudText>
+                        </div>
+                    }
+                    else if (finishedMotors.Count == 0)
+                    {
+                        <div class="d-flex justify-content-center align-items-center py-10">
+                            <MudText Typo="Typo.body1" Color="Color.Secondary">暂无数据</MudText>
+                        </div>
+                    }
+                    else
+                    {
+                        <MudTable Items="finishedMotors" Hover="true" FixedHeader="true"
+                                  SortLabel="Sort By" Elevation="3" Bordered="true" Striped="true"
+                                  Dense="true">
+                            <HeaderContent>
+                                <MudTh>
+                                    <MudTableSortLabel T="MotorDto"
+                                                       SortBy="@(context => finishedMotors.IndexOf(context) + 1)">序号
+                                    </MudTableSortLabel>
+                                </MudTh>
+                                <MudTh>
+                                    <MudTableSortLabel SortBy="(MotorDto x) => x.motor_id">电机ID</MudTableSortLabel>
+                                </MudTh>
+                                <MudTh>
+                                    <MudTableSortLabel SortBy="(MotorDto x) => x.task_id">任务ID</MudTableSortLabel>
+                                </MudTh>
+                                <MudTh>
+                                    <MudTableSortLabel SortBy="(MotorDto x) => x.operator_id">操作员ID
+                                    </MudTableSortLabel>
+                                </MudTh>
+                                <MudTh>
+                                    <MudTableSortLabel SortBy="(MotorDto x) => x.created_at">创建时间
+                                    </MudTableSortLabel>
+                                </MudTh>
+                                <MudTh>
+                                    <MudTableSortLabel SortBy="(MotorDto x) => x.update_at">更新时间</MudTableSortLabel>
+                                </MudTh>
+                                <MudTh>
+                                    <MudTableSortLabel SortBy="(MotorDto x) => x.is_qualified">是否合格
+                                    </MudTableSortLabel>
+                                </MudTh>
+                                <MudTh>
+                                    <MudTableSortLabel SortBy="(MotorDto x) => x.remarks">备注</MudTableSortLabel>
+                                </MudTh>
+                                <MudTh>
+                                    <MudTableSortLabel SortBy="(MotorDto x) => x.finger_id">手指ID</MudTableSortLabel>
+                                </MudTh>
+                                <MudTh>操作</MudTh>
+                            </HeaderContent>
+                            <RowTemplate>
+                                <MudTd DataLabel="序号">@(finishedMotors.IndexOf(context) + 1)</MudTd>
+                                <MudTd DataLabel="电机ID">@context.motor_id</MudTd>
+                                <MudTd DataLabel="任务ID">@context.task_id</MudTd>
+                                <MudTd DataLabel="操作员ID">@context.operator_id</MudTd>
+                                <MudTd DataLabel="创建时间">@context.created_at.ToString("yyyy-MM-dd HH:mm")</MudTd>
+                                <MudTd DataLabel="更新时间">@context.update_at?.ToString("yyyy-MM-dd HH:mm")</MudTd>
+                                <MudTd DataLabel="是否合格">
+                                    <MudChip T="string"
+                                             Color="@(context.is_qualified ? Color.Success : Color.Error)">@(context.is_qualified ? "是" : "否")</MudChip>
+                                </MudTd>
+                                <MudTd DataLabel="备注">@context.remarks</MudTd>
+                                <MudTd DataLabel="手指ID">@context.finger_id</MudTd>
+                                <MudTd DataLabel="操作">
+                                    <MudButton Variant="Variant.Filled" StartIcon="@Icons.Material.Filled.Edit"
+                                               Color="Color.Info">修改
+                                    </MudButton>
+                                    <MudButton Variant="Variant.Filled" StartIcon="@Icons.Material.Filled.Delete"
+                                               Color="Color.Error">删除
+                                    </MudButton>
+                                </MudTd>
+                            </RowTemplate>
+                            <PagerContent>
+                                <MudTablePager RowsPerPageString="显示数量"
+                                               PageSizeOptions="new int[] { 10, 20, 50, 100 }"/>
+                            </PagerContent>
+                        </MudTable>
+                    }
                 </MudStep>
-                <MudStep Completed="task.process_2" Title="2.电机组装">
-                    Check-in Step 2:
+
+                <MudStep Completed="task.process_2" Title="2.蜗杆粘接检测">
+                    <div class="d-flex justify-content-center align-items-center py-10">
+                        <MudText Typo="Typo.body1" Color="Color.Secondary">暂无数据</MudText>
+                    </div>
                 </MudStep>
-                <MudStep Completed="task.process_3" Title="3.成品组装">
-                    Check-in Step 3:
+
+                <MudStep Completed="task.process_3" Title="3.分指机构粘接检测">
+                    <div class="d-flex justify-content-center align-items-center py-10">
+                        <MudText Typo="Typo.body1" Color="Color.Secondary">暂无数据</MudText>
+                    </div>
+                </MudStep>
+
+                <MudStep Completed="task.process_4" Title="4.分指机构标定粘接">
+                    <div class="d-flex justify-content-center align-items-center py-10">
+                        <MudText Typo="Typo.body1" Color="Color.Secondary">暂无数据</MudText>
+                    </div>
+                </MudStep>
+
+                <!-- 5. 手指表格（带加载效果） -->
+                <MudStep Completed="task.process_5" Title="5.手指组装">
+                    @if (isFingerTableLoading)
+                    {
+                        <div class="d-flex justify-content-center align-items-center py-10">
+                            <MudText Typo="Typo.body1" Color="Color.Secondary">加载中...</MudText>
+                        </div>
+                    }
+                    else if (finishedFingers.Count == 0)
+                    {
+                        <div class="d-flex justify-content-center align-items-center py-10">
+                            <MudText Typo="Typo.body1" Color="Color.Secondary">暂无数据</MudText>
+                        </div>
+                    }
+                    else
+                    {
+                        <MudTable Items="finishedFingers" Hover="true" FixedHeader="true"
+                                  SortLabel="Sort By" Elevation="3" Bordered="true" Striped="true"
+                                  Dense="true">
+                            <HeaderContent>
+                                <MudTh>
+                                    <MudTableSortLabel T="FingerDto"
+                                                       SortBy="@(context => finishedFingers.IndexOf(context) + 1)">序号
+                                    </MudTableSortLabel>
+                                </MudTh>
+                                <MudTh>
+                                    <MudTableSortLabel SortBy="(FingerDto x) => x.finger_id">手指外壳ID
+                                    </MudTableSortLabel>
+                                </MudTh>
+                                <MudTh>
+                                    <MudTableSortLabel SortBy="(FingerDto x) => x.task_id">任务ID</MudTableSortLabel>
+                                </MudTh>
+                                <MudTh>
+                                    <MudTableSortLabel SortBy="(FingerDto x) => x.operator_id">操作员ID
+                                    </MudTableSortLabel>
+                                </MudTh>
+                                <MudTh>
+                                    <MudTableSortLabel SortBy="(FingerDto x) => x.created_at">创建时间
+                                    </MudTableSortLabel>
+                                </MudTh>
+                                <MudTh>
+                                    <MudTableSortLabel SortBy="(FingerDto x) => x.updated_at">更新时间
+                                    </MudTableSortLabel>
+                                </MudTh>
+                                <MudTh>
+                                    <MudTableSortLabel SortBy="(FingerDto x) => x.is_qualified">是否合格
+                                    </MudTableSortLabel>
+                                </MudTh>
+                                <MudTh>
+                                    <MudTableSortLabel SortBy="(FingerDto x) => x.remarks">备注</MudTableSortLabel>
+                                </MudTh>
+                                <MudTh>
+                                    <MudTableSortLabel SortBy="(FingerDto x) => x.palm_id">手掌外壳ID
+                                    </MudTableSortLabel>
+                                </MudTh>
+                                <MudTh>操作</MudTh>
+                            </HeaderContent>
+                            <RowTemplate>
+                                <MudTd DataLabel="序号">@(finishedFingers.IndexOf(context) + 1)</MudTd>
+                                <MudTd DataLabel="手指外壳ID">@context.finger_id</MudTd>
+                                <MudTd DataLabel="任务ID">@context.task_id</MudTd>
+                                <MudTd DataLabel="操作员ID">@context.operator_id</MudTd>
+                                <MudTd DataLabel="创建时间">@context.created_at.ToString("yyyy-MM-dd HH:mm")</MudTd>
+                                <MudTd DataLabel="更新时间">@context.updated_at?.ToString("yyyy-MM-dd HH:mm")</MudTd>
+                                <MudTd DataLabel="是否合格">
+                                    <MudChip T="string"
+                                             Color="@(context.is_qualified ? Color.Success : Color.Error)">@(context.is_qualified ? "是" : "否")</MudChip>
+                                </MudTd>
+                                <MudTd DataLabel="备注">@context.remarks</MudTd>
+                                <MudTd DataLabel="手掌外壳ID">@context.palm_id</MudTd>
+                                <MudTd DataLabel="操作">
+                                    <MudButton Variant="Variant.Filled" StartIcon="@Icons.Material.Filled.Edit"
+                                               Color="Color.Info">修改
+                                    </MudButton>
+                                    <MudButton Variant="Variant.Filled" StartIcon="@Icons.Material.Filled.Delete"
+                                               Color="Color.Error">删除
+                                    </MudButton>
+                                </MudTd>
+                            </RowTemplate>
+                            <PagerContent>
+                                <MudTablePager RowsPerPageString="显示数量"
+                                               PageSizeOptions="new int[] { 10, 20, 50, 100 }"/>
+                            </PagerContent>
+                        </MudTable>
+                    }
+                </MudStep>
+
+                <MudStep Completed="task.process_6" Title="6.单指标定检测">
+                    <div class="d-flex justify-content-center align-items-center py-10">
+                        <MudText Typo="Typo.body1" Color="Color.Secondary">暂无数据</MudText>
+                    </div>
+                </MudStep>
+
+                <!-- 7. 手掌表格（带加载效果） -->
+                <MudStep Completed="task.process_7" Title="7.手掌组装">
+                    @if (isPalmTableLoading)
+                    {
+                        <div class="d-flex justify-content-center align-items-center py-10">
+                            <MudText Typo="Typo.body1" Color="Color.Secondary">加载中...</MudText>
+                        </div>
+                    }
+                    else if (finishedPalms.Count == 0)
+                    {
+                        <div class="d-flex justify-content-center align-items-center py-10">
+                            <MudText Typo="Typo.body1" Color="Color.Secondary">暂无数据</MudText>
+                        </div>
+                    }
+                    else
+                    {
+                        <MudTable Items="finishedPalms" Hover="true" FixedHeader="true"
+                                  SortLabel="Sort By" Elevation="3" Bordered="true" Striped="true"
+                                  Dense="true">
+                            <HeaderContent>
+                                <MudTh>
+                                    <MudTableSortLabel T="PalmDto"
+                                                       SortBy="@(context => finishedPalms.IndexOf(context) + 1)">序号
+                                    </MudTableSortLabel>
+                                </MudTh>
+                                <MudTh>
+                                    <MudTableSortLabel SortBy="(PalmDto x) => x.palm_id">手掌外壳ID</MudTableSortLabel>
+                                </MudTh>
+                                <MudTh>
+                                    <MudTableSortLabel SortBy="(PalmDto x) => x.task_id">任务ID</MudTableSortLabel>
+                                </MudTh>
+                                <MudTh>
+                                    <MudTableSortLabel SortBy="(PalmDto x) => x.operator_id">操作员ID
+                                    </MudTableSortLabel>
+                                </MudTh>
+                                <MudTh>
+                                    <MudTableSortLabel SortBy="(PalmDto x) => x.created_at">创建时间
+                                    </MudTableSortLabel>
+                                </MudTh>
+                                <MudTh>
+                                    <MudTableSortLabel SortBy="(PalmDto x) => x.updated_at">更新时间</MudTableSortLabel>
+                                </MudTh>
+                                <MudTh>
+                                    <MudTableSortLabel SortBy="(PalmDto x) => x.is_qualified">是否合格
+                                    </MudTableSortLabel>
+                                </MudTh>
+                                <MudTh>
+                                    <MudTableSortLabel SortBy="(PalmDto x) => x.remarks">备注</MudTableSortLabel>
+                                </MudTh>
+                                <MudTh>操作</MudTh>
+                            </HeaderContent>
+                            <RowTemplate>
+                                <MudTd DataLabel="序号">@(finishedPalms.IndexOf(context) + 1)</MudTd>
+                                <MudTd DataLabel="手掌外壳ID">@context.palm_id</MudTd>
+                                <MudTd DataLabel="任务ID">@context.task_id</MudTd>
+                                <MudTd DataLabel="操作员ID">@context.operator_id</MudTd>
+                                <MudTd DataLabel="创建时间">@context.created_at.ToString("yyyy-MM-dd HH:mm")</MudTd>
+                                <MudTd DataLabel="更新时间">@context.updated_at?.ToString("yyyy-MM-dd HH:mm")</MudTd>
+                                <MudTd DataLabel="是否合格">
+                                    <MudChip T="string"
+                                             Color="@(context.is_qualified ? Color.Success : Color.Error)">@(context.is_qualified ? "是" : "否")</MudChip>
+                                </MudTd>
+                                <MudTd DataLabel="备注">@context.remarks</MudTd>
+                                <MudTd DataLabel="操作">
+                                    <MudButton Variant="Variant.Filled" StartIcon="@Icons.Material.Filled.Edit"
+                                               Color="Color.Info">修改
+                                    </MudButton>
+                                    <MudButton Variant="Variant.Filled" StartIcon="@Icons.Material.Filled.Delete"
+                                               Color="Color.Error">删除
+                                    </MudButton>
+                                </MudTd>
+                            </RowTemplate>
+                            <PagerContent>
+                                <MudTablePager RowsPerPageString="显示数量"
+                                               PageSizeOptions="new int[] { 10, 20, 50, 100 }"/>
+                            </PagerContent>
+                        </MudTable>
+                    }
+                </MudStep>
+
+                <MudStep Completed="task.process_8" Title="8.整手标定检测">
+                    <div class="d-flex justify-content-center align-items-center py-10">
+                        <MudText Typo="Typo.body1" Color="Color.Secondary">暂无数据</MudText>
+                    </div>
                 </MudStep>
             </ChildContent>
             <ActionContent Context="stepper">
-                <MudButton Variant="Variant.Filled"
-                           Color="Color.Primary"
-                           OnClick="@(() => GoToPrevious())"
-                           Disabled="@(_index <= 0)">
-                    <MudIcon Icon="@Icons.Material.Filled.ArrowBack"/>
-                    上一步
-                </MudButton>
-                <MudSpacer/>
-                <MudButton Variant="Variant.Filled"
-                           Color="Color.Primary"
-                           OnClick="@(() => GoToNext())"
-                           Disabled="@(_index >= 5)">
-                    下一步
-                    <MudIcon Icon="@Icons.Material.Filled.ArrowForward"/>
-                </MudButton>
+                @* <MudButton Variant="Variant.Filled" *@
+                @*            Color="Color.Primary" *@
+                @*            OnClick="@(() => GoToPrevious())" *@
+                @*            Disabled="@(currentStepIndex <= 0)"> *@
+                @*     <MudIcon Icon="@Icons.Material.Filled.ArrowBack"/> *@
+                @*     上一步 *@
+                @* </MudButton> *@
+                @* <MudSpacer/> *@
+                @* <MudButton Variant="Variant.Filled" *@
+                @*            Color="Color.Primary" *@
+                @*            OnClick="@(() => GoToNext())" *@
+                @*            Disabled="@(currentStepIndex >= 7)"> *@
+                @*     下一步 *@
+                @*     <MudIcon Icon="@Icons.Material.Filled.ArrowForward"/> *@
+                @* </MudButton> *@
             </ActionContent>
         </MudStepper>
     </MudPaper>
@@ -123,22 +410,74 @@ else
 
 @code {
     [Parameter] public string taskId { get; set; }
+    [Parameter] public int? stepIndex { get; set; } // 改为可空int，支持没有参数的情况
+    
     private ProductTaskDto task;
-    private int _index;
     private bool _completed;
     private bool isLoading = true;
-    private List<MotorDto> finishedMotors = new List<MotorDto>();
+    private int currentStepIndex = 0; // 当前步骤索引
 
+    // 新增三个表格的加载状态变量
+    private bool isMotorTableLoading = false;
+    private bool isFingerTableLoading = false;
+    private bool isPalmTableLoading = false;
+
+    private List<MotorDto> finishedMotors = new List<MotorDto>();
+    private List<FingerDto> finishedFingers = new List<FingerDto>();
+    private List<PalmDto> finishedPalms = new List<PalmDto>();
 
     protected override async Task OnInitializedAsync()
     {
         if (!string.IsNullOrEmpty(taskId))
         {
+            // 设置步骤索引，如果有传入参数则使用参数值，否则默认为0
+            if (stepIndex.HasValue && stepIndex.Value >= 0 && stepIndex.Value <= 7)
+            {
+                currentStepIndex = stepIndex.Value;
+            }
+            
             await LoadTaskDetail();
+            await LoadStepData(currentStepIndex); // 根据当前步骤加载对应数据
+            
+            Console.WriteLine($"当前索引: {currentStepIndex}");
         }
         else
         {
             isLoading = false;
+        }
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        // 当参数变化时重新设置步骤索引
+        if (stepIndex.HasValue && stepIndex.Value >= 0 && stepIndex.Value <= 7)
+        {
+            if (currentStepIndex != stepIndex.Value)
+            {
+                currentStepIndex = stepIndex.Value;
+                await LoadStepData(currentStepIndex);
+                StateHasChanged();
+            }
+        }
+    }
+
+    // 根据步骤索引加载对应的数据
+    private async Task LoadStepData(int stepIndex)
+    {
+        switch (stepIndex)
+        {
+            case 0: // 步骤1
+                await GetFinishedMotors();
+                break;
+            case 4: // 步骤5
+                await GetFinishedFingers();
+                break;
+            case 6: // 步骤7
+                await GetFinishedPalms();
+                break;
+            default:
+                // 其他步骤不需要加载表格数据
+                break;
         }
     }
 
@@ -147,22 +486,76 @@ else
         if (arg.Action == StepAction.Activate)
         {
             int targetIndex = arg.StepIndex;
-            SnackbarHelper.Show(Snackbar, Convert.ToString(targetIndex + 1), Severity.Success);
-            Console.WriteLine($"即将激活步骤: {targetIndex}");
+            currentStepIndex = targetIndex; // 更新当前索引
+            
+            // 更新URL，但不触发页面重载
+            var newUri = $"/TaskDetail/{taskId}/{targetIndex}";
+            NavigationManager.NavigateTo(newUri, replace: true, forceLoad: false);
+            
+            await LoadStepData(targetIndex);
         }
     }
 
+    // 电机表格数据加载
     private async Task GetFinishedMotors()
     {
         try
         {
+            isMotorTableLoading = true;
             var result = await ProcessOneService.GetFinishedList(taskId);
             finishedMotors = result;
         }
         catch (Exception ex)
         {
             finishedMotors = new List<MotorDto>();
-            SnackbarHelper.Show(Snackbar, "加载失败", Severity.Warning);
+            Snackbar.Add($"加载电机数据失败: {ex.Message}", Severity.Warning);
+        }
+        finally
+        {
+            isMotorTableLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    // 手指表格数据加载
+    private async Task GetFinishedFingers()
+    {
+        try
+        {
+            isFingerTableLoading = true;
+            var result = await ProcessTwoService.GetFinishedList(taskId);
+            finishedFingers = result;
+        }
+        catch (Exception ex)
+        {
+            finishedFingers = new List<FingerDto>();
+            Snackbar.Add($"加载手指数据失败: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            isFingerTableLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    // 手掌表格数据加载
+    private async Task GetFinishedPalms()
+    {
+        try
+        {
+            isPalmTableLoading = true;
+            var result = await ProcessThreeService.GetPalmList(taskId);
+            finishedPalms = result;
+        }
+        catch (Exception ex)
+        {
+            finishedPalms = new List<PalmDto>();
+            Snackbar.Add($"加载手掌数据失败: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            isPalmTableLoading = false;
+            StateHasChanged();
         }
     }
 
@@ -170,7 +563,7 @@ else
     {
         try
         {
-            isLoading = true; // 开始加载
+            isLoading = true;
             task = await TaskService.GetTaskDetail(taskId);
         }
         catch (Exception ex)
@@ -187,14 +580,31 @@ else
         }
     }
 
+    private string GetStatusText(byte status) => status switch
+    {
+        0 => "待处理",
+        1 => "进行中",
+        2 => "已完成",
+        3 => "已取消",
+        _ => $"未知状态({status})"
+    };
+
+    private Color GetStatusColor(byte status) => status switch
+    {
+        0 => Color.Default,
+        1 => Color.Info,
+        2 => Color.Success,
+        3 => Color.Error,
+        _ => Color.Default
+    };
+
     private void GoToNext()
     {
-        if (_index < 5) _index++;
+        if (currentStepIndex < 7) currentStepIndex++;
     }
 
     private void GoToPrevious()
     {
-        if (_index > 0) _index--;
+        if (currentStepIndex > 0) currentStepIndex--;
     }
-
 }

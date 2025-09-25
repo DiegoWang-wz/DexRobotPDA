@@ -17,13 +17,14 @@ public class PalmController : ControllerBase
     private readonly DailyDbContext db;
     private readonly IMapper mapper;
     private readonly ILogger<PalmController> _logger;
-    public PalmController(DailyDbContext _db, IMapper _mapper,ILogger<PalmController> logger)
+
+    public PalmController(DailyDbContext _db, IMapper _mapper, ILogger<PalmController> logger)
     {
         db = _db;
         mapper = _mapper;
         _logger = logger;
     }
-    
+
     [HttpGet]
     public IActionResult GetPalms()
     {
@@ -32,12 +33,12 @@ public class PalmController : ControllerBase
         {
             var list = db.Palms.ToList();
             _logger.LogDebug("从数据库获取到{Count}条记录", list.Count);
-            
+
             List<PalmDto> palms = mapper.Map<List<PalmDto>>(list);
             response.ResultCode = 1;
             response.Msg = "Success";
             response.ResultData = palms;
-            
+
             // 记录成功信息
             _logger.LogInformation("成功获取，共{Count}条记录", palms.Count);
         }
@@ -45,14 +46,14 @@ public class PalmController : ControllerBase
         {
             response.ResultCode = -1;
             response.Msg = "Error";
-            
+
             // 记录错误信息，包括异常详情
             _logger.LogError(e, "获取列表时发生错误");
         }
 
         return Ok(response);
     }
-    
+
     /// <summary>
     /// 新增手掌
     /// </summary>
@@ -66,7 +67,8 @@ public class PalmController : ControllerBase
             if (!ModelState.IsValid)
             {
                 response.ResultCode = -2;
-                response.Msg = "参数错误：" + string.Join(";", ModelState.Values.SelectMany(v => v.Errors.Select(e => e.ErrorMessage)));
+                response.Msg = "参数错误：" + string.Join(";",
+                    ModelState.Values.SelectMany(v => v.Errors.Select(e => e.ErrorMessage)));
                 return BadRequest(response);
             }
 
@@ -79,7 +81,7 @@ public class PalmController : ControllerBase
                 _logger.LogWarning("新增手指失败：手掌ID不存在 - {palm_id}", addPalmDto.palm_id);
                 return BadRequest(response);
             }
-            
+
             // 2.2 检查手掌ID是否已存在
             bool palmExists = await db.Palms.AnyAsync(p => p.palm_id == addPalmDto.palm_id);
             if (palmExists)
@@ -94,14 +96,14 @@ public class PalmController : ControllerBase
             int sameTaskCount = await db.Palms
                 .Where(p => p.task_id == addPalmDto.task_id)
                 .CountAsync();
-            
+
             // 假设每个任务最多允许添加2个手掌，可根据实际业务修改
             const int maxPalmsPerTask = 2;
             if (sameTaskCount >= maxPalmsPerTask)
             {
                 response.ResultCode = -1;
                 response.Msg = $"生产单号 '{addPalmDto.task_id}' 的手掌数量已达到上限（{maxPalmsPerTask}个），无法继续添加";
-                _logger.LogWarning("新增手掌失败：任务手掌数量已达上限 - TaskId: {TaskId}, 当前数量: {Count}", 
+                _logger.LogWarning("新增手掌失败：任务手掌数量已达上限 - TaskId: {TaskId}, 当前数量: {Count}",
                     addPalmDto.task_id, sameTaskCount);
                 return BadRequest(response);
             }
@@ -128,18 +130,18 @@ public class PalmController : ControllerBase
 
             // 6. 使用AutoMapper将DTO转换为Model
             var palmModel = mapper.Map<PalmModel>(addPalmDto);
-            
+
             // 7. 补充DTO中未包含但Model需要的字段
             palmModel.updated_at = DateTime.Now;
 
             // 8. 添加到数据库
             await db.Palms.AddAsync(palmModel);
             await db.SaveChangesAsync();
-            
+
             // 9. 记录日志
-            _logger.LogInformation("成功新增手掌，手掌ID: {PalmId}, 任务ID: {TaskId}, 当前任务手掌数量: {Count}", 
+            _logger.LogInformation("成功新增手掌，手掌ID: {PalmId}, 任务ID: {TaskId}, 当前任务手掌数量: {Count}",
                 addPalmDto.palm_id, addPalmDto.task_id, sameTaskCount + 1);
-            
+
             // 10. 构建响应
             response.ResultCode = 1;
             response.Msg = "新增成功";
@@ -150,7 +152,7 @@ public class PalmController : ControllerBase
                 max_allowed = maxPalmsPerTask,
                 remaining_slots = maxPalmsPerTask - (sameTaskCount + 1)
             };
-            
+
             return Ok(response);
         }
         catch (DbUpdateException dbEx)
@@ -168,20 +170,20 @@ public class PalmController : ControllerBase
                 response.Msg = "数据库操作失败";
                 _logger.LogError(dbEx, "新增手掌时数据库操作失败，手掌ID: {PalmId}", addPalmDto?.palm_id);
             }
-            
+
             return BadRequest(response);
         }
         catch (Exception e)
         {
             response.ResultCode = -1;
             response.Msg = "新增失败";
-        
+
             _logger.LogError(e, "新增手掌时发生错误，手掌ID: {PalmId}", addPalmDto?.palm_id);
-        
+
             return StatusCode(500, response);
         }
     }
-    
+
     /// <summary>
     /// 根据任务ID获取手掌列表
     /// </summary>
@@ -204,12 +206,12 @@ public class PalmController : ControllerBase
             var list = await db.Palms
                 .Where(p => p.task_id == taskId)
                 .ToListAsync();
-                
+
             _logger.LogDebug("从数据库获取到任务{TaskId}的手掌记录{Count}条", taskId, list.Count);
 
             // 映射为DTO列表
             List<PalmDto> palms = mapper.Map<List<PalmDto>>(list);
-            
+
             // 可以根据实际业务添加其他统计信息
             response.ResultCode = 1;
             response.Msg = "Success";
@@ -228,4 +230,41 @@ public class PalmController : ControllerBase
 
         return Ok(response);
     }
- }
+
+    [HttpPut]
+    public async Task<ActionResult<ApiResponse>> UpdateQualify(UpdateQualifyDto qualifyDto)
+    {
+        var res = new ApiResponse();
+
+        try
+        {
+            var palm = await db.Palms
+                .FirstOrDefaultAsync(t => t.palm_id == qualifyDto.id);
+
+            if (palm == null)
+            {
+                res.ResultCode = -1;
+                res.Msg = "手指外壳不存在";
+                return NotFound(res);
+            }
+
+
+            palm.is_qualified = qualifyDto.qualified;
+            palm.updated_at = DateTime.Now;
+
+            await db.SaveChangesAsync();
+
+            res.ResultCode = 1;
+            res.Msg = "更新成功";
+            res.ResultData = palm;
+
+            return Ok(res);
+        }
+        catch (Exception ex)
+        {
+            res.ResultCode = -1;
+            res.Msg = $"更新失败: {ex.Message}";
+            return BadRequest(res);
+        }
+    }
+}

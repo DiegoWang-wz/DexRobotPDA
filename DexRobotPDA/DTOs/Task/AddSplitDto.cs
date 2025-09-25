@@ -13,4 +13,5 @@ public class AddSplitDto
     public DateTime created_at { get; set; } = DateTime.Now;
     public DateTime updated_at { get; set; } = DateTime.Now;
 
+    public bool is_qualified { get; set; } = false;
 }

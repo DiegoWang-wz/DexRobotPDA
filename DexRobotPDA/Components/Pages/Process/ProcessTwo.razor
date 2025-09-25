@@ -8,10 +8,84 @@
 @inject AuthService AuthService
 @inject NavigationManager NavManager
 @inject IDialogService DialogService
-@using DexRobotPDA.Components.Pages.Detection
+@using DexRobotPDA.Components.Pages.Components
 @implements IAsyncDisposable
+<MudPaper Elevation="3" MaxWidth="1000px" Class="pa-4 ma-2 mx-auto">
+    <div class="min-vh-40 d-flex flex-column justify-center">
+        @if (!hasSearched)
+        {
+            <MudText Typo="Typo.body1" Color="Color.Secondary" Class="text-center">
+                请输入生产单号并点击查询，加载任务详情
+            </MudText>
+        }
+        else if (isLoading)
+        {
+            <div class="d-flex justify-content-center align-items-center">
+                <MudProgressLinear Color="Color.Primary" Indeterminate="true" Class="my-7"/>
+            </div>
+        }
+        else if (task == null)
+        {
+            <div class="d-flex justify-content-center align-items-center text-center">
+                <MudIcon Icon="@Icons.Material.Filled.Warning" Color="Color.Error" Size="Size.Medium" Class="mr-3"/>
+                <MudText Typo="Typo.body1" Color="Color.Error">
+                    无法加载任务数据，请检查生产单号是否正确
+                </MudText>
+            </div>
+        }
+        else
+        {
+            <MudStack Row="true" Spacing="4" Class="d-flex align-center py-2">
+                <MudButton
+                    Variant="Variant.Outlined"
+                    Color="@(ScannerService.IsAutoMode ? Color.Success : Color.Primary)"
+                    OnClick="ToggleScanModeAsync"
+                    Size="Size.Medium">
+                    @(ScannerService.IsAutoMode ? "自动匹配模式" : "手动聚焦模式")
+                    <MudIcon
+                        Icon="@(ScannerService.IsAutoMode ? Icons.Material.Filled.AutoAwesome : Icons.Material.Filled.Man)"
+                        Class="ml-2"/>
+                </MudButton>
+                <MudSpacer/>
+                <MudButton Variant=" Variant.Filled"
+                           Color="@(isThumbSelected ? Color.Default : Color.Error)"
+                           OnClick="@(e => ToggleFingerType(false))">
+                    四指
+                </MudButton>
+                <MudButton Variant=" Variant.Filled"
+                           Color="@(isThumbSelected ? Color.Error : Color.Default)"
+                           OnClick="@(e => ToggleFingerType(true))">
+                    大拇指
+                </MudButton>
 
-<MudPaper Elevation="3" Class="pa-4 ma-2 mx-md-20 my-md-4">
+                <MudDivider Vertical="true" Class="mx-4 my-auto" Style="height: 1em; align-self: center;"/>
+                <MudButton Variant="Variant.Filled"
+                           OnClick="NavigateToDetail"
+                           Color="Color.Primary">
+                    已绑定数量@(finishedFingers.Count)/5
+                </MudButton>
+            </MudStack>
+
+            <BarcodeScanner
+                Inputs="scannerInputs"
+                DetermineTargetInput="DetermineTargetInput"
+                OnInputValueChanged="HandleInputValueChanged"/>
+            <MudDivider Class="my-4"/>
+            <MudButton OnClick="HandleBinding" Size="Size.Large" Variant="Variant.Filled" Color="Color.Primary"
+                       FullWidth="true" Disabled="@isBinding">
+                @if (isBinding)
+                {
+                    <MudProgressCircular Size="Size.Small" Indeterminate="true"/>
+                    <MudText Class="ml-2">绑定中...</MudText>
+                }
+                else
+                {
+                    <MudText>绑定</MudText>
+                }
+            </MudButton>
+        }
+    </div>
+    <MudDivider Class="my-4"/>
     <MudStack Row="true" Spacing="4" Class="d-flex align-center py-2">
         <MudTextField
             @bind-Value="taskId"
@@ -46,121 +120,6 @@
             @(isLoading ? "查询中..." : "查询")
         </MudButton>
     </MudStack>
-
-    <MudDivider Class="my-4"/>
-    <div class="min-vh-40 d-flex flex-column justify-center">
-        @if (!hasSearched)
-        {
-            <MudText Typo="Typo.body1" Color="Color.Secondary" Class="text-center">
-                请输入生产单号并点击查询，加载任务详情
-            </MudText>
-        }
-        else if (isLoading)
-        {
-            <div class="d-flex justify-content-center align-items-center">
-                <MudProgressLinear Color="Color.Primary" Indeterminate="true" Class="my-7"/>
-            </div>
-        }
-        else if (task == null)
-        {
-            <div class="d-flex justify-content-center align-items-center text-center">
-                <MudIcon Icon="@Icons.Material.Filled.Warning" Color="Color.Error" Size="Size.Medium" Class="mr-3"/>
-                <MudText Typo="Typo.body1" Color="Color.Error">
-                    无法加载任务数据，请检查生产单号是否正确
-                </MudText>
-            </div>
-        }
-        else
-        {
-            <MudExpansionPanels>
-                <MudExpansionPanel>
-                    <TitleContent>
-                        <div class="d-flex">
-                            <MudText Typo="Typo.h6">任务明细</MudText>
-                            <MudSpacer/>
-                            @if (task.status == 1)
-                            {
-                                <MudChip T="string" Color="Color.Info">进行中</MudChip>
-                            }
-                            else if (task.status == 2)
-                            {
-                                <MudChip T="string" Color="Color.Success">已完成</MudChip>
-                            }
-                            else if (task.status == 3)
-                            {
-                                <MudChip T="string" Color="Color.Error">已取消</MudChip>
-                            }
-                            else
-                            {
-                                <MudChip T="string">未开始</MudChip>
-                            }
-                        </div>
-                    </TitleContent>
-                    <ChildContent>
-                        <div  class="d-flex flex-column flex-md-row w-100">
-                            <MudPaper Width="360px" Class="my-2 mx-1">
-                                <MudList T="string">
-                                    <MudListItem Text="@($"任务标题：{task.title ?? ""}")" Icon="@Icons.Material.Filled.Subtitles"/>
-                                    <MudListItem Text="@($"任务描述：{task.description ?? ""}")" Icon="@Icons.Material.Filled.Dehaze"/>
-                                    <MudListItem Text="@($"优先级：{(task.priority == 1 ? "低" : task.priority == 2 ? "中" : task.priority == 3 ? "高" : "")}")" Icon="@Icons.Material.Filled.PriorityHigh"/>
-                                </MudList>
-                            </MudPaper>
-                            <MudPaper Width="360px" Class="my-2 mx-1">
-                                <MudList T="string">
-                                    <MudListItem Text="@($"负责人：{task.assignee_id ?? ""}")" Icon="@Icons.Material.Filled.ManageAccounts"/>
-                                    <MudListItem Text="@($"创建日期：{task.created_at.ToString("yyyy-MM-dd HH:mm:ss") ?? ""}")" Icon="@Icons.Material.Filled.CalendarMonth"/>
-                                    <MudListItem Text="@($"更新日期：{task.updated_at.ToString("yyyy-MM-dd HH:mm:ss") ?? ""}")" Icon="@Icons.Material.Filled.EditCalendar"/>
-                                </MudList>
-                            </MudPaper>
-                        </div>
-                    </ChildContent>
-                </MudExpansionPanel>
-            </MudExpansionPanels>
-            <MudDivider Class="my-4"/>
-            <MudStack Row="true" Spacing="4" Class="d-flex align-center py-2">
-                <MudButton
-                    Variant="Variant.Outlined"
-                    Color="@(ScannerService.IsAutoMode ? Color.Success : Color.Primary)"
-                    OnClick="ToggleScanModeAsync"
-                    Size="Size.Medium">
-                    @(ScannerService.IsAutoMode ? "自动匹配模式" : "手动聚焦模式")
-                    <MudIcon Icon="@(ScannerService.IsAutoMode ? Icons.Material.Filled.AutoAwesome : Icons.Material.Filled.Man)"
-                             Class="ml-2"/>
-                </MudButton>
-                <MudSpacer/>
-                <MudButton Variant=" Variant.Filled"  
-                           Color="@(isThumbSelected ? Color.Warning : Color.Info)" 
-                           OnClick="@(e => ToggleFingerType(!isThumbSelected))">
-                    @(isThumbSelected ? "切换四指" : "切换大拇指")
-                </MudButton>
-
-                <MudDivider Vertical="true" Class="mx-4 my-auto" Style="height: 1em; align-self: center;"/>
-                <MudButton Variant="Variant.Filled"
-                           Color="Color.Primary">
-                    已绑定数量@(finishedFingers.Count)/5
-                </MudButton>
-            </MudStack>
-
-            <!-- 集成条码扫描组件 -->
-            <BarcodeScanner 
-                Inputs="scannerInputs"
-                DetermineTargetInput="DetermineTargetInput"
-                OnInputValueChanged="HandleInputValueChanged"/>
-            <MudDivider Class="my-4"/>
-            <MudButton OnClick="HandleBinding" Size="Size.Large" Variant="Variant.Filled" Color="Color.Primary"
-                       FullWidth="true" Disabled="@isBinding">
-                @if (isBinding)
-                {
-                    <MudProgressCircular Size="Size.Small" Indeterminate="true"/>
-                    <MudText Class="ml-2">绑定中...</MudText>
-                }
-                else
-                {
-                    <MudText>绑定</MudText>
-                }
-            </MudButton>
-        }
-    </div>
 </MudPaper>
 
 @code {
@@ -178,60 +137,60 @@
     private string _motorId2 { get; set; } = string.Empty;
     private string _motorId3 { get; set; } = string.Empty;
     private DotNetObjectReference<ProcessTwo>? dotNetRef;
-    private bool isThumbSelected = false; 
+    private bool isThumbSelected = false;
     private List<BarcodeScanner.InputField> scannerInputs = new();
-    
+
     private async Task ToggleScanModeAsync()
     {
         await ScannerService.ToggleModeAsync();
         StateHasChanged(); // 刷新按钮显示状态
     }
-    
+
     protected override async Task OnInitializedAsync()
     {
         // 初始化扫描器输入框
         scannerInputs = new List<BarcodeScanner.InputField>
         {
             // 手指编号 - 普通输入框，保持自动聚焦
-            new BarcodeScanner.InputField 
-            { 
-                Index = 1, 
-                Label = "手指编号", 
-                Id = "fingerId", 
-                IsSpecialInput = false 
+            new BarcodeScanner.InputField
+            {
+                Index = 1,
+                Label = "手指编号",
+                Id = "fingerId",
+                IsSpecialInput = false
             },
             // 电机1编号 - 普通输入框，保持自动聚焦
-            new BarcodeScanner.InputField 
-            { 
-                Index = 2, 
-                Label = "电机1编号", 
-                Id = "motorId1", 
-                IsSpecialInput = false 
+            new BarcodeScanner.InputField
+            {
+                Index = 2,
+                Label = "电机1编号",
+                Id = "motorId1",
+                IsSpecialInput = false
             },
             // 电机2编号 - 普通输入框，保持自动聚焦
-            new BarcodeScanner.InputField 
-            { 
-                Index = 3, 
-                Label = "电机2编号", 
-                Id = "motorId2", 
-                IsSpecialInput = false 
+            new BarcodeScanner.InputField
+            {
+                Index = 3,
+                Label = "电机2编号",
+                Id = "motorId2",
+                IsSpecialInput = false
             },
             // 电机3编号 - 普通输入框，保持自动聚焦
-            new BarcodeScanner.InputField 
-            { 
-                Index = 4, 
-                Label = "电机3编号(大拇指)", 
-                Id = "motorId3", 
-                IsSpecialInput = false ,
+            new BarcodeScanner.InputField
+            {
+                Index = 4,
+                Label = "电机3编号(大拇指)",
+                Id = "motorId3",
+                IsSpecialInput = false,
                 Visible = false
             },
             // 备注 - 特殊输入框，点击会退出自动聚焦
-            new BarcodeScanner.InputField 
-            { 
-                Index = 5, 
-                Label = "备注", 
-                Id = "remarks", 
-                IsSpecialInput = true 
+            new BarcodeScanner.InputField
+            {
+                Index = 5,
+                Label = "备注",
+                Id = "remarks",
+                IsSpecialInput = true
             }
         };
     }
@@ -245,6 +204,7 @@
         {
             motor3Input.Visible = isThumb;
         }
+
         StateHasChanged();
     }
 
@@ -288,7 +248,7 @@
         ScannerService.SetCurrentFocusedInputId("taskId");
         _ = ScannerService.ExitAutoFocusModeAsync();
     }
-    
+
     // 处理特殊输入框（任务单号）的失焦事件
     private async Task HandleSpecialInputBlur()
     {
@@ -296,6 +256,7 @@
         {
             await ScannerService.EnterAutoFocusModeAsync();
         }
+
         await ScannerService.HandleInputBlurAsync();
     }
 
@@ -307,13 +268,13 @@
         hasInputError = false;
         finishedFingers.Clear();
         _fingerDto = new AddFingerDto();
-        
+
         // 清空扫描器输入框
         foreach (var input in scannerInputs)
         {
             input.Value = string.Empty;
         }
-        
+
         _motorId1 = string.Empty;
         _motorId2 = string.Empty;
         _motorId3 = string.Empty;
@@ -356,6 +317,7 @@
             {
                 SnackbarHelper.Show(Snackbar, "生产单号不存在", Severity.Warning);
             }
+
             _fingerDto.task_id = taskId;
             await GetFinishedList();
         }
@@ -381,10 +343,13 @@
         catch (Exception ex)
         {
             finishedFingers = new List<FingerDto>();
-            SnackbarHelper.Show(Snackbar,"加载失败", Severity.Error);
+            SnackbarHelper.Show(Snackbar, "加载失败", Severity.Error);
         }
     }
-
+    private void NavigateToDetail()
+    {
+        NavManager.NavigateTo($"/TaskDetail/{taskId}/{4}");
+    }
     private bool isBinding = false;
 
     private async Task HandleBinding()
@@ -394,23 +359,23 @@
         var motor1Input = scannerInputs.FirstOrDefault(i => i.Id == "motorId1");
         var motor2Input = scannerInputs.FirstOrDefault(i => i.Id == "motorId2");
         var motor3Input = scannerInputs.FirstOrDefault(i => i.Id == "motorId3");
-        
+
         // 基本验证
         if (fingerIdInput == null || string.IsNullOrWhiteSpace(fingerIdInput.Value))
         {
-            SnackbarHelper.Show(Snackbar,"请输入手指外壳编号", Severity.Warning);
+            SnackbarHelper.Show(Snackbar, "请输入手指外壳编号", Severity.Warning);
             return;
         }
 
         if (motor1Input == null || string.IsNullOrWhiteSpace(motor1Input.Value))
         {
-            SnackbarHelper.Show(Snackbar,"请输入电机1编号", Severity.Warning);
+            SnackbarHelper.Show(Snackbar, "请输入电机1编号", Severity.Warning);
             return;
         }
 
         if (motor2Input == null || string.IsNullOrWhiteSpace(motor2Input.Value))
         {
-            SnackbarHelper.Show(Snackbar,"请输入电机2编号", Severity.Warning);
+            SnackbarHelper.Show(Snackbar, "请输入电机2编号", Severity.Warning);
             return;
         }
 
@@ -420,14 +385,14 @@
             // 更新绑定数据
             _fingerDto.finger_id = fingerIdInput.Value;
             _fingerDto.remarks = scannerInputs.FirstOrDefault(i => i.Id == "remarks")?.Value ?? "";
-            
+
             // 添加手指信息
             var response = await ProcessTwoService.AddFinger(_fingerDto);
 
             if (response.ResultCode != 1)
             {
                 var errorMessage = response?.Msg ?? "绑定失败";
-                SnackbarHelper.Show(Snackbar,errorMessage, Severity.Error);
+                SnackbarHelper.Show(Snackbar, errorMessage, Severity.Error);
                 return;
             }
 
@@ -464,7 +429,7 @@
         }
         catch (Exception ex)
         {
-            SnackbarHelper.Show(Snackbar,"绑定失败", Severity.Error);
+            SnackbarHelper.Show(Snackbar, "绑定失败", Severity.Error);
         }
         finally
         {
@@ -481,17 +446,17 @@
             response = await ProcessTwoService.MotorBindFinger(motor_id, finger_id);
             if (response != null && response.ResultCode == 1)
             {
-                SnackbarHelper.Show(Snackbar,$"电机{motor_id},绑定成功", Severity.Success);
+                SnackbarHelper.Show(Snackbar, $"电机{motor_id},绑定成功", Severity.Success);
             }
             else
             {
                 var errorMessage = response?.Msg ?? $"电机{motor_id},绑定失败";
-                SnackbarHelper.Show(Snackbar,errorMessage, Severity.Error);
+                SnackbarHelper.Show(Snackbar, errorMessage, Severity.Error);
             }
         }
         catch (Exception ex)
         {
-            SnackbarHelper.Show(Snackbar,$"电机{motor_id},绑定失败", Severity.Error);
+            SnackbarHelper.Show(Snackbar, $"电机{motor_id},绑定失败", Severity.Error);
         }
 
         return response;
@@ -501,7 +466,7 @@
     {
         if (string.IsNullOrWhiteSpace(taskId) || task == null)
         {
-            SnackbarHelper.Show(Snackbar,"请先查询并加载有效的任务数据", Severity.Warning);
+            SnackbarHelper.Show(Snackbar, "请先查询并加载有效的任务数据", Severity.Warning);
             return;
         }
 
@@ -510,18 +475,18 @@
             var response = await TaskService.UpdateTaskProcessStatus(taskId, "process2", 1);
             if (response != null && response.ResultCode == 1)
             {
-                SnackbarHelper.Show(Snackbar,"流程提交成功", Severity.Success);
+                SnackbarHelper.Show(Snackbar, "流程提交成功", Severity.Success);
                 await LoadTaskDetail();
             }
             else
             {
                 var errorMsg = response?.Msg ?? "提交失败，请重试";
-                SnackbarHelper.Show(Snackbar,errorMsg, Severity.Error);
+                SnackbarHelper.Show(Snackbar, errorMsg, Severity.Error);
             }
         }
         catch (Exception ex)
         {
-            SnackbarHelper.Show(Snackbar,"系统异常，提交失败", Severity.Error);
+            SnackbarHelper.Show(Snackbar, "系统异常，提交失败", Severity.Error);
         }
     }
 
@@ -547,26 +512,26 @@
                 break;
         }
     }
-    
+
     // 确定条码数据应填入哪个输入框
     private BarcodeScanner.InputField? DetermineTargetInput(string barcodeData)
     {
         var fingerInput = scannerInputs.FirstOrDefault(i => i.Id == "fingerId" && string.IsNullOrEmpty(i.Value));
         if (fingerInput != null) return fingerInput;
-        
+
         var motor1Input = scannerInputs.FirstOrDefault(i => i.Id == "motorId1" && string.IsNullOrEmpty(i.Value));
         if (motor1Input != null) return motor1Input;
-        
+
         var motor2Input = scannerInputs.FirstOrDefault(i => i.Id == "motorId2" && string.IsNullOrEmpty(i.Value));
         if (motor2Input != null) return motor2Input;
-        
+
         // 如果是大拇指且电机3未填写，则填充电机3
         if (isThumbSelected)
         {
             var motor3Input = scannerInputs.FirstOrDefault(i => i.Id == "motorId3" && string.IsNullOrEmpty(i.Value));
             if (motor3Input != null) return motor3Input;
         }
-        
+
         // 所有输入框都已填写，默认返回手指编号输入框
         return scannerInputs.FirstOrDefault(i => i.Id == "fingerId");
     }
@@ -581,4 +546,5 @@
 
         GC.SuppressFinalize(this);
     }
+
 }

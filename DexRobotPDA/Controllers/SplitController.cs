@@ -233,4 +233,41 @@ public class SplitController : ControllerBase
             return BadRequest(res);
         }
     }
+    
+    [HttpPut]
+    public async Task<ActionResult<ApiResponse>> UpdateQualify(UpdateQualifyDto qualifyDto)
+    {
+        var res = new ApiResponse();
+
+        try
+        {
+            var split = await db.Splits
+                .FirstOrDefaultAsync(t => t.split_id == qualifyDto.id);
+
+            if (split == null)
+            {
+                res.ResultCode = -1;
+                res.Msg = "分指机构不存在";
+                return NotFound(res);
+            }
+
+
+            split.is_qualified = qualifyDto.qualified;
+            split.updated_at = DateTime.Now;
+
+            await db.SaveChangesAsync();
+
+            res.ResultCode = 1;
+            res.Msg = "更新成功";
+            res.ResultData = split;
+
+            return Ok(res);
+        }
+        catch (Exception ex)
+        {
+            res.ResultCode = -1;
+            res.Msg = $"更新失败: {ex.Message}";
+            return BadRequest(res);
+        }
+    }
 }

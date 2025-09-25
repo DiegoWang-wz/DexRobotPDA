@@ -242,7 +242,7 @@ public class FingerController : ControllerBase
                 res.Msg = "手指外壳不存在";
                 return NotFound(res);
             }
-            
+
             if (palm == null)
             {
                 res.ResultCode = -1;
@@ -265,6 +265,43 @@ public class FingerController : ControllerBase
         {
             res.ResultCode = -1;
             res.Msg = $"绑定失败: {ex.Message}";
+            return BadRequest(res);
+        }
+    }
+
+    [HttpPut]
+    public async Task<ActionResult<ApiResponse>> UpdateQualify(UpdateQualifyDto qualifyDto)
+    {
+        var res = new ApiResponse();
+
+        try
+        {
+            var finger = await db.Fingers
+                .FirstOrDefaultAsync(t => t.finger_id == qualifyDto.id);
+
+            if (finger == null)
+            {
+                res.ResultCode = -1;
+                res.Msg = "手指外壳不存在";
+                return NotFound(res);
+            }
+
+
+            finger.is_qualified = qualifyDto.qualified;
+            finger.updated_at = DateTime.Now;
+
+            await db.SaveChangesAsync();
+
+            res.ResultCode = 1;
+            res.Msg = "更新成功";
+            res.ResultData = finger;
+
+            return Ok(res);
+        }
+        catch (Exception ex)
+        {
+            res.ResultCode = -1;
+            res.Msg = $"更新失败: {ex.Message}";
             return BadRequest(res);
         }
     }

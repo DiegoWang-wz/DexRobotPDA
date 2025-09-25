@@ -100,6 +100,10 @@ public class ProductTaskModel
     /// </summary>
     [Required]
     public byte process_6 { get; set; } = 0;
+    [Required]
+    public byte process_7 { get; set; } = 0;
+    [Required]
+    public byte process_8 { get; set; } = 0;
 
     // 导航属性
     public EmployeeModel Assignee { get; set; }

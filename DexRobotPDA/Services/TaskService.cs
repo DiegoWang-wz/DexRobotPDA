@@ -31,6 +31,29 @@ namespace DexRobotPDA.Services
             request.AddParameter("taskId", taskId);
             return await ExecuteRequest<ProductTaskDto>(request);
         }
+        public async Task<ApiResponse> AddTask(AddTaskDto taskDto)
+        {
+            var request = new RestRequest("api/ProductTask/AddTask", Method.Post);
+
+            request.AddJsonBody(taskDto);
+            var apiResponse = await ExecuteCommand(request);
+            var options = new JsonSerializerOptions { WriteIndented = true };
+            string responseJson = JsonSerializer.Serialize(apiResponse, options);
+            Console.WriteLine("API响应内容:");
+            Console.WriteLine(responseJson);
+
+            if (apiResponse.ResultCode == 1 && apiResponse.ResultData != null)
+            {
+                _logger.LogInformation("任务新增成功 - 任务标题: {title}",taskDto.title);
+            }
+            else
+            {
+                _logger.LogWarning("任务新增失败 - 任务标题: {title}, 错误信息: {Msg}",taskDto.title, apiResponse.Msg);
+            }
+
+            return apiResponse;
+        }
+
 
         public async Task<ApiResponse> UpdateTaskProcessStatus(string taskId, string process, byte status)
         {
@@ -43,10 +66,11 @@ namespace DexRobotPDA.Services
 
             var request = new RestRequest("api/ProductTask/UpdateTaskProcessStatus", Method.Post);
             // 传递JSON体参数，与后端DTO匹配
-            request.AddJsonBody(new { 
-                task_id = taskId, 
-                process = process, 
-                status = status 
+            request.AddJsonBody(new
+            {
+                task_id = taskId,
+                process = process,
+                status = status
             });
 
             _logger.LogInformation("尝试更新任务流程状态 - 任务ID: {TaskId}, 流程: {Process}, 目标状态: {Status}",
@@ -71,17 +95,18 @@ namespace DexRobotPDA.Services
                 _logger.LogWarning("任务流程状态更新失败 - 任务ID: {TaskId}, 流程: {Process}, 错误信息: {Msg}",
                     taskId, process, apiResponse.Msg);
             }
+
             return apiResponse;
         }
 
-        
         public async Task<ApiResponse> UpdateTaskStatus(string taskId, byte status)
         {
             // 1. 构建POST请求（后端API为POST，参数通过QueryString传递）
             var request = new RestRequest("api/ProductTask/UpdateTaskStatus", Method.Post);
-            request.AddJsonBody(new { 
-                task_id = taskId, 
-                status = status 
+            request.AddJsonBody(new
+            {
+                task_id = taskId,
+                status = status
             });
             _logger.LogInformation("尝试更新任务整体状态 - 任务ID: {TaskId}, 目标状态: {Status}",
                 taskId, status);
@@ -109,6 +134,7 @@ namespace DexRobotPDA.Services
                 _logger.LogWarning("任务整体状态更新失败 - 任务ID: {TaskId}, 错误信息: {Msg}",
                     taskId, apiResponse.Msg);
             }
+
             return apiResponse;
         }
     }

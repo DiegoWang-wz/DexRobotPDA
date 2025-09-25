@@ -17,13 +17,14 @@ public class MotorController : ControllerBase
     private readonly DailyDbContext db;
     private readonly IMapper mapper;
     private readonly ILogger<MotorController> _logger;
-    public MotorController(DailyDbContext _db, IMapper _mapper,ILogger<MotorController> logger)
+
+    public MotorController(DailyDbContext _db, IMapper _mapper, ILogger<MotorController> logger)
     {
         db = _db;
         mapper = _mapper;
         _logger = logger;
     }
-    
+
     [HttpGet]
     public IActionResult GetMotors()
     {
@@ -32,12 +33,12 @@ public class MotorController : ControllerBase
         {
             var list = db.Motors.ToList();
             _logger.LogDebug("从数据库获取到{Count}条记录", list.Count);
-            
+
             List<MotorDto> motors = mapper.Map<List<MotorDto>>(list);
             response.ResultCode = 1;
             response.Msg = "Success";
             response.ResultData = motors;
-            
+
             // 记录成功信息
             _logger.LogInformation("成功获取，共{Count}条记录", motors.Count);
         }
@@ -45,14 +46,14 @@ public class MotorController : ControllerBase
         {
             response.ResultCode = -1;
             response.Msg = "Error";
-            
+
             // 记录错误信息，包括异常详情
             _logger.LogError(e, "获取列表时发生错误");
         }
 
         return Ok(response);
     }
-    
+
     [HttpPost]
     public async Task<IActionResult> AddMotor(AddMotorDto addMotorDto)
     {
@@ -73,27 +74,27 @@ public class MotorController : ControllerBase
             int sameTaskCount = await db.Motors
                 .Where(m => m.task_id == addMotorDto.task_id)
                 .CountAsync();
-                
+
             if (sameTaskCount >= 11)
             {
                 response.ResultCode = -1;
                 response.Msg = $"生产单号 '{addMotorDto.task_id}' 的电机数量已达到上限（11个），无法继续添加";
-                _logger.LogWarning("新增电机失败：任务电机数量已达上限 - TaskId: {TaskId}, 当前数量: {Count}", 
+                _logger.LogWarning("新增电机失败：任务电机数量已达上限 - TaskId: {TaskId}, 当前数量: {Count}",
                     addMotorDto.task_id, sameTaskCount);
                 return BadRequest(response);
             }
 
             // 3. 使用 AutoMapper 将 DTO 转换为 Model
             var motorModel = mapper.Map<MotorModel>(addMotorDto);
-        
+
             // 4. 添加到数据库（异步）
             await db.Motors.AddAsync(motorModel);
             await db.SaveChangesAsync();
-        
+
             // 5. 记录日志
-            _logger.LogInformation("成功新增电机，电机ID: {MotorId}, 任务ID: {TaskId}, 当前任务电机数量: {Count}", 
+            _logger.LogInformation("成功新增电机，电机ID: {MotorId}, 任务ID: {TaskId}, 当前任务电机数量: {Count}",
                 addMotorDto.motor_id, addMotorDto.task_id, sameTaskCount + 1);
-        
+
             // 6. 构建响应
             response.ResultCode = 1;
             response.Msg = "新增成功";
@@ -104,7 +105,7 @@ public class MotorController : ControllerBase
                 max_allowed = 11,
                 remaining_slots = 11 - (sameTaskCount + 1)
             };
-        
+
             return Ok(response);
         }
         catch (DbUpdateException dbEx)
@@ -122,20 +123,20 @@ public class MotorController : ControllerBase
                 response.Msg = "数据库操作失败";
                 _logger.LogError(dbEx, "新增电机时数据库操作失败，电机ID: {MotorId}", addMotorDto?.motor_id);
             }
-            
+
             return BadRequest(response);
         }
         catch (Exception e)
         {
             response.ResultCode = -1;
             response.Msg = "新增失败";
-        
+
             _logger.LogError(e, "新增电机时发生错误，电机ID: {MotorId}", addMotorDto?.motor_id);
-        
+
             return StatusCode(500, response);
         }
     }
-    
+
     [HttpGet]
     public IActionResult GetFinishedList(string taskId)
     {
@@ -183,7 +184,7 @@ public class MotorController : ControllerBase
                 res.Msg = $"{dto.motor_id},电机不存在";
                 return NotFound(res);
             }
-            
+
             if (finger == null)
             {
                 res.ResultCode = -1;
@@ -206,6 +207,42 @@ public class MotorController : ControllerBase
         {
             res.ResultCode = -1;
             res.Msg = $"绑定失败: {ex.Message}";
+            return BadRequest(res);
+        }
+    }
+
+    [HttpPut]
+    public async Task<ActionResult<ApiResponse>> UpdateQualify(UpdateQualifyDto qualifyDto)
+    {
+        var res = new ApiResponse();
+
+        try
+        {
+            var motor = await db.Motors
+                .FirstOrDefaultAsync(t => t.motor_id == qualifyDto.id);
+
+            if (motor == null)
+            {
+                res.ResultCode = -1;
+                res.Msg = "电机不存在";
+                return NotFound(res);
+            }
+
+            motor.is_qualified = qualifyDto.qualified;
+            motor.update_at = DateTime.Now;
+
+            await db.SaveChangesAsync();
+
+            res.ResultCode = 1;
+            res.Msg = "更新成功";
+            res.ResultData = motor;
+
+            return Ok(res);
+        }
+        catch (Exception ex)
+        {
+            res.ResultCode = -1;
+            res.Msg = $"更新失败: {ex.Message}";
             return BadRequest(res);
         }
     }

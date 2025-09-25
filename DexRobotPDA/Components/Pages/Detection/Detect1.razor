@@ -4,7 +4,125 @@
 @using System.ComponentModel.DataAnnotations
 @using System.Dynamic
 
-<MudPaper Elevation="3" Class="pa-4 ma-2 mx-md-20 my-md-4">
+<MudPaper Elevation="3" MaxWidth="1000px" Class="pa-4 ma-2 mx-auto">
+    @if (isLoading)
+    {
+        <MudProgressLinear Color="Color.Primary" Indeterminate="true"/>
+    }
+    else if (_detectDto?.id > 0)
+    {
+        <MudGrid Spacing="4">
+            <MudItem xs="12" sm="8">
+                <MudPaper Class="pa-4">
+                    <MudForm @ref="form" @bind-Errors="@errors" Model="@_detectDto">
+                        <MudTextField Class="my-2" Label="检测编号"
+                                      Disabled="true"
+                                      @bind-Value="_detectDto.id"/>
+
+                        <MudTextField Class="my-2" Label="电机编号"
+                                      Disabled="true"
+                                      @bind-Value="_detectDto.motor_id"
+                                      RequiredError="请输入电机编号"/>
+
+                        <MudNumericField T="double?" Label="施加的力"
+                                         Required="true"
+                                         RequiredError="请输入施加的力"
+                                         @bind-Value="_detectDto.force"/>
+
+                        <MudTextField Class="my-2" T="double?" Label="测试前的距离"
+                                      @bind-Value="_detectDto.distance_before"
+                                      OnBlur="CalculateDistanceResult"
+                                      Required="true"
+                                      RequiredError="请输入测试前的距离"/>
+
+                        <MudTextField Class="my-2" T="double?" Label="测试后的距离"
+                                      @bind-Value="_detectDto.distance_after"
+                                      OnBlur="CalculateDistanceResult"
+                                      Required="true"
+                                      RequiredError="请输入测试后的距离"/>
+
+                        <MudTextField Class="my-2" T="double?" Label="距离差"
+                                      @bind-Value="_detectDto.distance_result"
+                                      Disabled="true"
+                                      Required="true"
+                                      RequiredError="请输入距离差"/>
+
+                        <MudDatePicker T="DateTime?"
+                                       Label="粘合时间"
+                                       Disabled="true"
+                                       @bind-Date="_detectDto.combine_time"
+                                       DateFormat="yyyy-MM-dd HH:mm:ss"
+                                       Adornment="Adornment.End"
+                                       AdornmentIcon="@Icons.Material.Filled.Event"
+                                       Class="my-2"/>
+
+                        <MudDatePicker T="DateTime?"
+                                       Label="使用时间"
+                                       Disabled="true"
+                                       @bind-Date="_detectDto.using_time"
+                                       DateFormat="yyyy-MM-dd HH:mm:ss"
+                                       Adornment="Adornment.End"
+                                       AdornmentIcon="@Icons.Material.Filled.Event"
+                                       Class="my-2"/>
+
+                        <MudTextField Class="my-2" T="double?" Label="已过去的小时" Disabled="true"
+                                      @bind-Value="_timeDiffHours"
+                                      RequiredError="请输入距离差"/>
+
+                        @* <div class="d-flex align-center justify-space-between"> *@
+                        @*     <MudDatePicker T="DateTime?" *@
+                        @*                    Label="使用时间" *@
+                        @*                    Disabled="true" *@
+                        @*                    @bind-Date="_detectDto.using_time" *@
+                        @*                    DateFormat="yyyy-MM-dd HH:mm:ss" *@
+                        @*                    Adornment="Adornment.End" *@
+                        @*                    AdornmentIcon="@Icons.Material.Filled.Event" *@
+                        @*                    Class="my-2"/> *@
+                        @*     <MudButton Variant="Variant.Filled" Class="mx-2">获取当前时间</MudButton> *@
+                        @* </div> *@
+                        @* <MudTextField Class="my-2" T="string?" Label="备注" *@
+                        @*               @bind-Value="_detectDto.remarks"/> *@
+
+                        <div class="d-flex">
+                            <MudRadioGroup @bind-Value="_detectDto.if_qualified">
+                                <MudRadio Value="true" Color="Color.Success" Dense="true">合格</MudRadio>
+                                <MudRadio Value="false" Color="Color.Secondary" Dense="false">不合格</MudRadio>
+                            </MudRadioGroup>
+                        </div>
+
+                        <div class="d-flex align-center justify-space-between">
+                            <MudButton Variant="Variant.Filled"
+                                       Color="Color.Primary"
+                                       OnClick="HandleSubmit"
+                                       Disabled="@(!CanSubmit)"
+                                       Class="ml-auto">
+                                提交检测结果
+                            </MudButton>
+                        </div>
+                        @* <MudText Typo="Typo.body2" Color="Color.Primary"> *@
+                        @*     当前选择状态: @(_detectDto.if_qualified.ToString() ?? "未选择") *@
+                        @* </MudText> *@
+                    </MudForm>
+                </MudPaper>
+            </MudItem>
+            <MudItem xs="12" sm="4">
+                <MudPaper Class="pa-4 mud-height-full">
+                    <MudText Typo="Typo.subtitle2">@($"Errors ({errors.Length})")</MudText>
+                    @foreach (var error in errors)
+                    {
+                        <MudText Color="@Color.Error">@error</MudText>
+                    }
+                </MudPaper>
+            </MudItem>
+        </MudGrid>
+    }
+    else if (hasSearched)
+    {
+        <MudText Align="Align.Center" Color="Color.Warning">
+            未查询到相关数据
+        </MudText>
+    }
+    <MudDivider Class="my-4"/>
     <MudStack Row="true" Spacing="4" Class="d-flex align-center py-2">
         <MudTextField
             @bind-Value="motor_id"
@@ -39,110 +157,6 @@
             @(isLoading ? "查询中..." : "查询")
         </MudButton>
     </MudStack>
-
-    <MudDivider Class="my-4"/>
-    @if (isLoading)
-    {
-        <MudProgressLinear Color="Color.Primary" Indeterminate="true"/>
-    }
-    else if (_detectDto?.id > 0)
-    {
-        <MudGrid>
-            <MudItem xs="12" sm="7">
-                <MudPaper Class="pa-4">
-                    <MudForm @ref="form" @bind-Errors="@errors" Model="@_detectDto">
-                        <!-- 电机编号 -->
-                        <MudTextField Class="my-2" Label="电机编号"
-                                      Disabled="true"
-                                      @bind-Value="_detectDto.motor_id"
-                                      RequiredError="请输入电机编号"/>
-
-                        <MudTextField Class="my-2" T="double?" Label="测试前的距离"
-                                      @bind-Value="_detectDto.distance_before"
-                                      OnBlur="CalculateDistanceResult"
-                                      Required="true"
-                                      RequiredError="请输入测试前的距离"/>
-
-                        <MudTextField Class="my-2" T="double?" Label="施加的力"
-                                      @bind-Value="_detectDto.force"
-                                      Required="true"
-                                      RequiredError="请输入施加的力"/>
-
-                        <MudTextField Class="my-2" T="double?" Label="测试后的距离"
-                                      @bind-Value="_detectDto.distance_after"
-                                      OnBlur="CalculateDistanceResult"
-                                      Required="true"
-                                      RequiredError="请输入测试后的距离"/>
-
-                        <MudTextField Class="my-2" T="double?" Label="距离差"
-                                      @bind-Value="_detectDto.distance_result"
-                                      Required="true"
-                                      RequiredError="请输入距离差"/>
-
-                        <MudDatePicker T="DateTime?"
-                                       Label="粘合时间"
-                                       Disabled="true"
-                                       @bind-Date="_detectDto.combine_time"
-                                       DateFormat="yyyy-MM-dd HH:mm:ss"
-                                       Adornment="Adornment.End"
-                                       AdornmentIcon="@Icons.Material.Filled.Event"
-                                       Class="my-2"/>
-
-                        <MudDatePicker T="DateTime?"
-                                       Label="使用时间"
-                                       Disabled="true"
-                                       @bind-Date="_detectDto.using_time"
-                                       DateFormat="yyyy-MM-dd HH:mm:ss"
-                                       Adornment="Adornment.End"
-                                       AdornmentIcon="@Icons.Material.Filled.Event"
-                                       Class="my-2"/>
-                        <MudTextField Class="my-2" T="double?" Label="已过去的小时" Disabled="true"
-                                      @bind-Value="_timeDiffHours"
-                                      RequiredError="请输入距离差"/>
-
-
-                        <MudTextField Class="my-2" T="string?" Label="备注"
-                                      @bind-Value="_detectDto.remarks"/>
-
-                        <div class="d-flex">
-                            <MudRadioGroup @bind-Value="_detectDto.if_qualified">
-                                <MudRadio Value="true" Color="Color.Success" Dense="true">合格</MudRadio>
-                                <MudRadio Value="false" Color="Color.Secondary" Dense="false">不合格</MudRadio>
-                            </MudRadioGroup>
-                        </div>
-
-                        <div class="d-flex align-center justify-space-between">
-                            <MudButton Variant="Variant.Filled"
-                                       Color="Color.Primary"
-                                       OnClick="HandleSubmit"
-                                       Disabled="@(!CanSubmit)"
-                                       Class="ml-auto">
-                                提交检测结果
-                            </MudButton>
-                        </div>
-                        @* <MudText Typo="Typo.body2" Color="Color.Primary"> *@
-                        @*     当前选择状态: @(_detectDto.if_qualified.ToString() ?? "未选择") *@
-                        @* </MudText> *@
-                    </MudForm>
-                </MudPaper>
-            </MudItem>
-            <MudItem xs="12" sm="5">
-                <MudPaper Class="pa-4 mud-height-full">
-                    <MudText Typo="Typo.subtitle2">@($"Errors ({errors.Length})")</MudText>
-                    @foreach (var error in errors)
-                    {
-                        <MudText Color="@Color.Error">@error</MudText>
-                    }
-                </MudPaper>
-            </MudItem>
-        </MudGrid>
-    }
-    else if (hasSearched)
-    {
-        <MudText Align="Align.Center" Color="Color.Warning">
-            未查询到相关数据
-        </MudText>
-    }
 </MudPaper>
 
 @code {
@@ -336,18 +350,6 @@
             try
             {
                 isSubmitting = true;
-
-                // 检查关键字段
-                Console.WriteLine("=== 提交前数据检查 ===");
-                Console.WriteLine($"电机编号: {_detectDto.motor_id}");
-                Console.WriteLine($"检测员ID: {currentUser?.employee_id}");
-                Console.WriteLine($"距离前: {_detectDto.distance_before}");
-                Console.WriteLine($"距离后: {_detectDto.distance_after}");
-                Console.WriteLine($"距离差: {_detectDto.distance_result}");
-                Console.WriteLine($"是否合格: {_detectDto.if_qualified}");
-                Console.WriteLine("====================");
-
-
                 // 检查DTO是否完整
                 if (string.IsNullOrEmpty(_detectDto.motor_id))
                 {
@@ -368,6 +370,30 @@
                 if (response?.ResultCode == 1)
                 {
                     Snackbar.Add("提交成功", Severity.Success);
+                    
+                    try
+                    {
+                        var updateQualifyDto = new UpdateQualifyDto
+                        {
+                            id = _detectDto.motor_id,
+                            qualified = true
+                        };
+
+                        var response2 = await DetectService.UpdateMotorQualify(updateQualifyDto);
+                        if (response2?.ResultCode == 1)
+                        {
+                            Snackbar.Add($"更新{_detectDto.motor_id}的状态成功", Severity.Success);
+                        }else
+                        {
+                            Snackbar.Add($"更新失败：{response2?.Msg}", Severity.Error);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"提交异常: {ex.Message}");
+                        Console.WriteLine($"异常堆栈: {ex.StackTrace}");
+                        Snackbar.Add($"提交异常：{ex.Message}", Severity.Error);
+                    }
                 }
                 else
                 {
@@ -396,4 +422,5 @@
             Snackbar.Add("表单存在错误，请检查后提交", Severity.Warning);
         }
     }
+
 }
