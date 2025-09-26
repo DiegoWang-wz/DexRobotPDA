@@ -36,10 +36,21 @@
                                   AdornmentIcon="@Icons.Material.Filled.Description"
                                   Lines="2">
                     </MudTextField>
-
+                    <MudNumericField T="int"
+                                     @bind-Value="_addTaskDto.product_num"
+                                     Label="生产数量"
+                                     Required="true"
+                                     InvertMouseWheel="true"
+                                     Variant="Variant.Outlined"
+                                     Min="1" 
+                                     Adornment="@Adornment.Start"
+                                     AdornmentIcon="@Icons.Material.Filled.PriorityHigh">
+                    </MudNumericField>
                     <MudNumericField T="byte"
                                      @bind-Value="_addTaskDto.priority"
                                      Label="优先级"
+                                     Required="true"
+                                     InvertMouseWheel="true"
                                      Variant="Variant.Outlined"
                                      Min="1" Max="3"
                                      Adornment="@Adornment.Start"
@@ -48,6 +59,7 @@
 
                     <MudTextField T="string"
                                   Label="负责人ID"
+                                  Required="true"
                                   @bind-Value="_addTaskDto.assignee_id"
                                   Variant="Variant.Outlined"
                                   Adornment="@Adornment.Start"

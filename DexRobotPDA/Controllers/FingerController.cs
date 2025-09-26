@@ -94,12 +94,16 @@ public class FingerController : ControllerBase
                 .Where(f => f.task_id == addFingerDto.task_id)
                 .CountAsync();
 
+            int productNum = (await db.ProductTasks
+                .Where(p => p.task_id == addFingerDto.task_id)
+                .Select(p => p.product_num)
+                .FirstOrDefaultAsync())*11;
+            
             // 假设每个任务最多允许添加5个手指，可根据实际业务修改此数值
-            const int maxFingersPerTask = 5;
-            if (sameTaskCount >= maxFingersPerTask)
+            if (sameTaskCount >= productNum)
             {
                 response.ResultCode = -1;
-                response.Msg = $"生产单号 '{addFingerDto.task_id}' 的手指数量已达到上限（{maxFingersPerTask}个），无法继续添加";
+                response.Msg = $"生产单号 '{addFingerDto.task_id}' 的手指数量已达到上限（{productNum}个），无法继续添加";
                 _logger.LogWarning("新增手指失败：任务手指数量已达上限 - TaskId: {TaskId}, 当前数量: {Count}",
                     addFingerDto.task_id, sameTaskCount);
                 return BadRequest(response);
@@ -147,8 +151,8 @@ public class FingerController : ControllerBase
             {
                 finger = mapper.Map<FingerDto>(fingerModel),
                 current_count = sameTaskCount + 1,
-                max_allowed = maxFingersPerTask,
-                remaining_slots = maxFingersPerTask - (sameTaskCount + 1)
+                max_allowed = productNum,
+                remaining_slots = productNum - (sameTaskCount + 1)
             };
 
             return Ok(response);

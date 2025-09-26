@@ -16,12 +16,76 @@ public class ProcessTwoService : BaseService
     {
     }
     
+
+    
     public async Task<List<FingerDto>?> GetFinishedList(string taskId)
     {
         var request = new RestRequest("api/Finger/GetFingerList");
         request.AddParameter("taskId", taskId);
         return await ExecuteRequest<List<FingerDto>>(request);
     }
+    
+    public async Task<QualifyDto> CheckMotor(string motor_id)
+    {
+        var request = new RestRequest("api/Motor/GetMotorQualify");
+        request.AddParameter("motor_id", motor_id);
+        var apiResponse = await ExecuteCommand(request);
+
+        // 处理API调用失败的情况（转换为不合格的QualifyDto）
+        if (apiResponse.ResultCode != 1 || apiResponse.ResultData == null)
+        {
+            return new QualifyDto
+            {
+                qualify = false,
+                message = apiResponse.Msg ?? "获取电机状态失败"
+            };
+        }
+
+        try
+        {
+            // 解析主接口返回的QualifyDto
+            var qualifyDto = JsonSerializer.Deserialize<QualifyDto>(
+                JsonSerializer.Serialize(apiResponse.ResultData)
+            );
+
+            // 如果电机不合格，调用详情接口获取具体原因
+            if (qualifyDto != null && !qualifyDto.qualify)
+            {
+                var detailRequest = new RestRequest("api/Detect1/Detect1Message");
+                detailRequest.AddParameter("motor_id", motor_id);
+                var detailResponse = await ExecuteCommand(detailRequest);
+
+                // 解析详情接口返回的QualifyDto
+                if (detailResponse.ResultCode == 1 && detailResponse.ResultData != null)
+                {
+                    var detailDto = JsonSerializer.Deserialize<QualifyDto>(
+                        JsonSerializer.Serialize(detailResponse.ResultData)
+                    );
+                    return detailDto ?? qualifyDto; // 优先返回详情接口数据
+                }
+            
+                // 详情接口调用失败时，保留基础不合格信息
+                qualifyDto.message = detailResponse.Msg ?? "获取不合格详情失败";
+                return qualifyDto;
+            }
+
+            // 电机合格时直接返回主接口数据
+            return qualifyDto ?? new QualifyDto { qualify = true, message = "电机合格" };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "解析电机状态数据失败");
+            // 解析失败时返回明确的错误信息
+            return new QualifyDto
+            {
+                qualify = false,
+                message = "解析电机状态数据失败：" + ex.Message
+            };
+        }
+    }
+
+
+    
     public async Task<ApiResponse> AddFinger(AddFingerDto fingerDto)
     {
         var request = new RestRequest("api/Finger/AddFinger", Method.Post);

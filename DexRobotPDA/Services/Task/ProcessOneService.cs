@@ -46,46 +46,7 @@ public class ProcessOneService : BaseService
             var createdMotor = JsonSerializer.Deserialize<MotorDto>(motorData);
             _logger.LogInformation("电机新增成功 - 电机ID: {MotorId}", createdMotor?.motor_id);
 
-            // 创建检测记录DTO
-            AddDetect1Dto detect1Dto = new AddDetect1Dto
-            {
-                motor_id = motorDto.motor_id,
-                combine_time = DateTime.Now,
-                remarks = motorDto.remarks ?? "电机创建时自动生成的检测记录",
-                if_qualified = false
-            };
-
-            try
-            {
-                // 发送创建检测记录的请求
-                var detectRequest = new RestRequest("api/Detect1/AddDetect1", Method.Post);
-                detectRequest.AddJsonBody(detect1Dto);
-
-                _logger.LogInformation("开始为电机 {MotorId} 创建检测记录", motorDto.motor_id);
-                var detectResponse = await ExecuteCommand(detectRequest);
-
-                if (detectResponse.ResultCode == 1)
-                {
-                    _logger.LogInformation("电机 {MotorId} 的检测记录创建成功", motorDto.motor_id);
-                    // 如果需要，可以将检测记录信息添加到返回结果中
-                    apiResponse.ResultData = new
-                    {
-                        motor = createdMotor,
-                        detect1 = detectResponse.ResultData
-                    };
-                }
-                else
-                {
-                    _logger.LogWarning("电机 {MotorId} 的检测记录创建失败: {Message}",
-                        motorDto.motor_id, detectResponse.Msg);
-                    // 检测记录创建失败不影响电机创建结果，但记录警告日志
-                }
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "创建电机 {MotorId} 的检测记录时发生异常", motorDto.motor_id);
-                // 捕获异常但不影响主流程，确保电机创建成功的状态被正确返回
-            }
+            
         }
         else
         {

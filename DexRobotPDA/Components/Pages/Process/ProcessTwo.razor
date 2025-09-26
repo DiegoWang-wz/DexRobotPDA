@@ -35,54 +35,72 @@
         }
         else
         {
-            <MudStack Row="true" Spacing="4" Class="d-flex align-center py-2">
-                <MudButton
-                    Variant="Variant.Outlined"
-                    Color="@(ScannerService.IsAutoMode ? Color.Success : Color.Primary)"
-                    OnClick="ToggleScanModeAsync"
-                    Size="Size.Medium">
-                    @(ScannerService.IsAutoMode ? "自动匹配模式" : "手动聚焦模式")
-                    <MudIcon
-                        Icon="@(ScannerService.IsAutoMode ? Icons.Material.Filled.AutoAwesome : Icons.Material.Filled.Man)"
-                        Class="ml-2"/>
-                </MudButton>
-                <MudSpacer/>
-                <MudButton Variant=" Variant.Filled"
-                           Color="@(isThumbSelected ? Color.Default : Color.Error)"
-                           OnClick="@(e => ToggleFingerType(false))">
-                    四指
-                </MudButton>
-                <MudButton Variant=" Variant.Filled"
-                           Color="@(isThumbSelected ? Color.Error : Color.Default)"
-                           OnClick="@(e => ToggleFingerType(true))">
-                    大拇指
-                </MudButton>
+            @if (finishedFingers.Count == (task.product_num * 5))
+            {
+                <div class="d-flex flex-row align-center my-6">
+                    <MudText Typo="Typo.h6" Class="text-primary mr-4">该任务已完成</MudText>
+                    <MudSpacer/>
+                    <MudButton Variant="Variant.Filled"
+                               OnClick="NavigateToDetail"
+                               Color="Color.Primary">
+                        查看明细
+                    </MudButton>
+                </div>
+            }
+            else
+            {
+                <MudStack Row="true" Spacing="4" Class="d-flex align-center py-2">
+                    <MudButton
+                        Variant="Variant.Outlined"
+                        Color="@(ScannerService.IsAutoMode ? Color.Success : Color.Primary)"
+                        OnClick="ToggleScanModeAsync"
+                        Size="Size.Medium">
+                        @(ScannerService.IsAutoMode ? "自动匹配模式" : "手动聚焦模式")
+                        <MudIcon
+                            Icon="@(ScannerService.IsAutoMode ? Icons.Material.Filled.AutoAwesome : Icons.Material.Filled.Man)"
+                            Class="ml-2"/>
+                    </MudButton>
+                    <MudSpacer/>
+                    <MudButton Variant=" Variant.Filled"
+                               Color="@(isThumbSelected ? Color.Default : Color.Error)"
+                               OnClick="@(e => ToggleFingerType(false))">
+                        四指
+                    </MudButton>
+                    <MudButton Variant=" Variant.Filled"
+                               Color="@(isThumbSelected ? Color.Error : Color.Default)"
+                               OnClick="@(e => ToggleFingerType(true))">
+                        大拇指
+                    </MudButton>
 
-                <MudDivider Vertical="true" Class="mx-4 my-auto" Style="height: 1em; align-self: center;"/>
-                <MudButton Variant="Variant.Filled"
-                           OnClick="NavigateToDetail"
-                           Color="Color.Primary">
-                    已绑定数量@(finishedFingers.Count)/5
-                </MudButton>
-            </MudStack>
+                    <MudDivider Vertical="true" Class="mx-4 my-auto" Style="height: 1em; align-self: center;"/>
+                    <MudButton Variant="Variant.Filled"
+                               OnClick="NavigateToDetail"
+                               Color="Color.Primary">
+                        已绑定数量@(finishedFingers.Count)/(@(task.product_num * 5))
+                    </MudButton>
+                </MudStack>
 
-            <BarcodeScanner
-                Inputs="scannerInputs"
-                DetermineTargetInput="DetermineTargetInput"
-                OnInputValueChanged="HandleInputValueChanged"/>
-            <MudDivider Class="my-4"/>
-            <MudButton OnClick="HandleBinding" Size="Size.Large" Variant="Variant.Filled" Color="Color.Primary"
-                       FullWidth="true" Disabled="@isBinding">
-                @if (isBinding)
-                {
-                    <MudProgressCircular Size="Size.Small" Indeterminate="true"/>
-                    <MudText Class="ml-2">绑定中...</MudText>
-                }
-                else
-                {
-                    <MudText>绑定</MudText>
-                }
-            </MudButton>
+                <BarcodeScanner
+                    Inputs="scannerInputs"
+                    DetermineTargetInput="DetermineTargetInput"
+                    OnInputBlur="HandleAnyInputBlur"
+                    DuplicateCheckInputIds="DuplicateCheckList"
+                    DuplicateErrorMessage="电机编号重复"
+                    OnInputValueChanged="HandleInputValueChanged"/>
+                <MudDivider Class="my-4"/>
+                <MudButton OnClick="HandleBinding" Size="Size.Large" Variant="Variant.Filled" Color="Color.Primary"
+                           FullWidth="true" Disabled="@isBinding">
+                    @if (isBinding)
+                    {
+                        <MudProgressCircular Size="Size.Small" Indeterminate="true"/>
+                        <MudText Class="ml-2">绑定中...</MudText>
+                    }
+                    else
+                    {
+                        <MudText>绑定</MudText>
+                    }
+                </MudButton>
+            }
         }
     </div>
     <MudDivider Class="my-4"/>
@@ -139,6 +157,7 @@
     private DotNetObjectReference<ProcessTwo>? dotNetRef;
     private bool isThumbSelected = false;
     private List<BarcodeScanner.InputField> scannerInputs = new();
+    private List<string> DuplicateCheckList = new() { "motorId1", "motorId2", "motorId3" };
 
     private async Task ToggleScanModeAsync()
     {
@@ -260,6 +279,7 @@
         await ScannerService.HandleInputBlurAsync();
     }
 
+
     private void ClearTaskId()
     {
         taskId = string.Empty;
@@ -339,6 +359,14 @@
         {
             var result = await ProcessTwoService.GetFinishedList(taskId);
             finishedFingers = result;
+            if (finishedFingers.Count >= (task.product_num * 5))
+            {
+                await TaskService.UpdateTaskProcessStatus(taskId, "process5", 1);
+            }
+            else
+            {
+                await TaskService.UpdateTaskProcessStatus(taskId, "process5", 0);
+            }
         }
         catch (Exception ex)
         {
@@ -346,10 +374,46 @@
             SnackbarHelper.Show(Snackbar, "加载失败", Severity.Error);
         }
     }
+
     private void NavigateToDetail()
     {
         NavManager.NavigateTo($"/TaskDetail/{taskId}/{4}");
     }
+
+    private async Task HandleAnyInputBlur(string inputId)
+    {
+        Console.WriteLine($"输入框 {inputId} 已失焦");
+        if (inputId.Contains("motor"))
+        {
+            var Input = scannerInputs.FirstOrDefault(i => i.Id == inputId);
+            if (Input == null) return;
+
+            // 保存当前是否有重复错误
+            bool hasDuplicateError = Input.Error && Input.ErrorText.Contains("电机编号重复");
+        
+            QualifyDto dto = await ProcessTwoService.CheckMotor(Input.Value);
+            if (dto.qualify == false)
+            {
+                // 电机验证失败，设置错误（覆盖非重复错误）
+                Input.Error = true;
+                Input.ErrorText = dto.message;
+            }
+            else
+            {
+                // 电机验证通过时：
+                // 1. 如果有重复错误，保留重复错误
+                // 2. 如果没有重复错误，才清除错误
+                if (!hasDuplicateError)
+                {
+                    Input.Error = false;
+                    Input.ErrorText = "";
+                }
+            }
+            StateHasChanged();
+        }
+    }
+
+
     private bool isBinding = false;
 
     private async Task HandleBinding()
@@ -376,6 +440,12 @@
         if (motor2Input == null || string.IsNullOrWhiteSpace(motor2Input.Value))
         {
             SnackbarHelper.Show(Snackbar, "请输入电机2编号", Severity.Warning);
+            return;
+        }
+
+        if (isThumbSelected && (motor3Input == null || string.IsNullOrWhiteSpace(motor3Input.Value)))
+        {
+            SnackbarHelper.Show(Snackbar, "请输入电机3编号", Severity.Warning);
             return;
         }
 
@@ -410,14 +480,10 @@
                 return;
             }
 
-            // 如果是大拇指且电机3编号不为空，则绑定电机3
-            if (isThumbSelected && motor3Input != null && !string.IsNullOrWhiteSpace(motor3Input.Value))
+            ApiResponse response3 = await HandleMotorBindFinger(motor3Input.Value, _fingerDto.finger_id);
+            if (response3?.ResultCode != 1)
             {
-                ApiResponse response3 = await HandleMotorBindFinger(motor3Input.Value, _fingerDto.finger_id);
-                if (response3?.ResultCode != 1)
-                {
-                    return;
-                }
+                return;
             }
 
             // 清空输入框

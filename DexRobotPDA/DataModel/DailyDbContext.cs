@@ -16,6 +16,8 @@ namespace DexRobotPDA.DataModel
         public virtual DbSet<PalmModel> Palms { get; set; }
         public virtual DbSet<MaterialModel> Materials { get; set; }
         public virtual DbSet<MotorWormDetectModel> Detect1 { get; set; }
+        public virtual DbSet<SplitWormDetectModel> Detect2 { get; set; }
+        public virtual DbSet<SplitCalibrateDetectModel> Detect3 { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {

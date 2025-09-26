@@ -24,6 +24,8 @@ public class AutoMapperSetting : Profile
         CreateMap<PalmModel, PalmDto>().ReverseMap();
         CreateMap<MaterialModel, MaterialDto>().ReverseMap();
         CreateMap<MotorWormDetectModel, MotorWormDetectDto>().ReverseMap();
+        CreateMap<SplitWormDetectModel,SplitWormDetectDto>().ReverseMap();
+        CreateMap<SplitCalibrateDetectModel, SplitCalibrateDetectDto>().ReverseMap();
         CreateMap<AddTaskDto, ProductTaskModel>()
             .ForMember(dest => dest.id, opt => opt.Ignore()) // 忽略自增主键
             .ForMember(dest => dest.status, opt => opt.Ignore())
@@ -74,16 +76,8 @@ public class AutoMapperSetting : Profile
             .ForMember(dest => dest.PalmMaterial, opt => opt.Ignore())
             .ForMember(dest => dest.Operator, opt => opt.Ignore())
             .ForMember(dest => dest.Fingers, opt => opt.Ignore());
-
-        CreateMap<AddDetect1Dto, MotorWormDetectModel>()
-            .ForMember(dest => dest.distance_before, opt => opt.MapFrom(src => (double?)null)) 
-            .ForMember(dest => dest.force, opt => opt.Ignore()) 
-            .ForMember(dest => dest.distance_after, opt => opt.Ignore())
-            .ForMember(dest => dest.distance_result, opt => opt.Ignore())
-            .ForMember(dest => dest.using_time, opt => opt.Ignore())
-            .ForMember(dest => dest.inspector_id, opt => opt.Ignore())
-            .ForMember(dest => dest.id, opt => opt.Ignore())
-            .ForMember(dest => dest.Inspector, opt => opt.Ignore())
-            .ForMember(dest => dest.Motor, opt => opt.Ignore());
+        
+        CreateMap<UpdateDetect1Dto, MotorWormDetectModel>()
+            .ForMember(dest => dest.id, opt => opt.Ignore());
     }
 }

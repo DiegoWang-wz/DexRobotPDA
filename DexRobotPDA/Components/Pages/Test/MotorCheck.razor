@@ -1,0 +1,101 @@
+﻿@page "/MotorCheck"
+
+@inject ProcessTwoService ProcessTwoService
+@inject ISnackbar Snackbar
+
+<MudPaper Elevation="3" Class="pa-4 ma-2 mx-auto" Style="max-width: 600px;">
+    <MudText Typo="Typo.h6" Class="mb-4">电机状态检测</MudText>
+    
+    <MudStack Spacing="3">
+        <MudTextField @bind-Value="motorId" 
+                      Label="电机ID" 
+                      Error="@if_error"
+                      ErrorText="@ErrorText"
+                      Variant="Variant.Outlined"
+                      Disabled="@isChecking" />
+        
+        <MudButton Variant="Variant.Filled" 
+                   Color="Color.Primary"
+                   OnClick="CheckMotorStatus"
+                   Disabled="@isChecking"
+                   Class="align-self-end">
+            @if (isChecking)
+            {
+                <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2"/>
+                <MudText>检测中...</MudText>
+            }
+            else
+            {
+                <MudText>检测</MudText>
+            }
+        </MudButton>
+        
+        @if (hasChecked)
+        {
+            @if (dto.qualify)
+            {
+                <MudPaper Elevation="1" Class="pa-3 mt-4">
+                    <MudText Typo="Typo.body2" Class="mt-2">
+                        合格
+                    </MudText>
+                </MudPaper>
+            }
+            else
+            {
+                <MudPaper Elevation="1" Class="pa-3 mt-4">
+                    <MudText Typo="Typo.body2" Class="mt-2">
+                        @dto.message
+                    </MudText>
+                </MudPaper>
+            }
+        }
+    </MudStack>
+</MudPaper>
+
+@code {
+    private string motorId = string.Empty;
+    private bool isChecking = false;
+    private bool hasChecked = false;
+    private bool if_error = false;
+    private string ErrorText = "";
+    private QualifyDto dto;
+     
+    
+    
+    private async Task CheckMotorStatus()
+    {
+        if (string.IsNullOrWhiteSpace(motorId))
+        {
+            Snackbar.Add("请输入电机ID", Severity.Warning);
+            return;
+        }
+
+        if_error = false;
+        ErrorText = "";
+        isChecking = true;
+        hasChecked = false;
+        dto = new QualifyDto();
+        StateHasChanged();
+
+        try
+        {
+            dto = await ProcessTwoService.CheckMotor(motorId);
+            hasChecked = true;
+            if (dto.qualify == false)
+            {
+                if_error = true;
+                ErrorText = dto.message;
+                StateHasChanged();
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"检测失败: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            isChecking = false;
+            StateHasChanged();
+        }
+    }
+}

@@ -13,13 +13,49 @@ public class DetectService : BaseService
 
     public DetectService(
         RestClient restClient,
-        ILogger<DetectService> logger, 
+        ILogger<DetectService> logger,
         ILocalStorageService localStorage)
         : base(restClient, logger, localStorage)
     {
         _logger = logger;
     }
-    
+
+
+    public async Task<ApiResponse> AddDetect1(UpdateDetect1Dto detect1Dto)
+    {
+        try
+        {
+            // 发送创建检测记录的请求
+            var detectRequest = new RestRequest("api/Detect1/AddDetect1", Method.Post);
+            detectRequest.AddJsonBody(detect1Dto);
+
+            _logger.LogInformation("开始为电机 {MotorId} 创建检测记录", detect1Dto.motor_id);
+            var detectResponse = await ExecuteCommand(detectRequest);
+
+            if (detectResponse.ResultCode == 1)
+            {
+                _logger.LogInformation("电机 {MotorId} 的检测记录创建成功", detect1Dto.motor_id);
+            }
+            else
+            {
+                _logger.LogWarning("电机 {MotorId} 的检测记录创建失败: {Message}", detect1Dto.motor_id, detectResponse.Msg);
+            }
+            return detectResponse;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "创建电机 {MotorId} 的检测记录时发生异常", detect1Dto.motor_id);
+            throw;
+        }
+    }
+
+    public async Task<MotorDto> GetMotor(string motor_id)
+    {
+        var request = new RestRequest("api/Motor/GetMotor");
+        request.AddParameter("motor_id", motor_id);
+        return await ExecuteRequest<MotorDto>(request);
+    }
+
     public async Task<ApiResponse> UpdateDetect1(MotorWormDetectDto detect1Dto)
     {
         var request = new RestRequest("api/Detect1/UpdateLatestDetect", Method.Put);
@@ -33,9 +69,9 @@ public class DetectService : BaseService
 
         // 使用JSON格式发送检测数据
         request.AddJsonBody(detect1Dto);
-    
+
         _logger.LogInformation("尝试更新检测记录 - 电机ID: {MotorId}", detect1Dto.motor_id);
-    
+
         try
         {
             var apiResponse = await ExecuteCommand(request);
@@ -65,14 +101,28 @@ public class DetectService : BaseService
             throw;
         }
     }
-    
+
     public async Task<MotorWormDetectDto?> GetMotorWormDetect(string motor_id)
     {
         var request = new RestRequest("api/Detect1/GetMotorWormDetect");
         request.AddParameter("motor_id", motor_id);
         return await ExecuteRequest<MotorWormDetectDto>(request);
     }
-    
+
+    public async Task<List<MotorWormDetectDto>?> GetMotorWormDetectList(string task_id)
+    {
+        var request = new RestRequest("api/Detect1/GetMotorWormDetectList");
+        request.AddParameter("task_id", task_id);
+        return await ExecuteRequest<List<MotorWormDetectDto>>(request);
+    }
+
+    public async Task<List<SplitWormDetectDto>?> GetSplitWormDetectList(string task_id)
+    {
+        var request = new RestRequest("api/Detect2/GetSplitWormDetectList");
+        request.AddParameter("task_id", task_id);
+        return await ExecuteRequest<List<SplitWormDetectDto>>(request);
+    }
+
     public async Task<ApiResponse> UpdateMotorQualify(UpdateQualifyDto qualifyDto)
     {
         var request = new RestRequest("api/Motor/UpdateQualify", Method.Put);
@@ -97,8 +147,9 @@ public class DetectService : BaseService
             }
             else
             {
-                _logger.LogWarning("检测记录更新失败 - 配件ID: {ID}, 错误信息: {Msg}",qualifyDto.id, apiResponse.Msg);
+                _logger.LogWarning("检测记录更新失败 - 配件ID: {ID}, 错误信息: {Msg}", qualifyDto.id, apiResponse.Msg);
             }
+
             return apiResponse;
         }
         catch (Exception ex)
@@ -109,7 +160,7 @@ public class DetectService : BaseService
             throw;
         }
     }
-    
+
     public async Task<ApiResponse> UpdateFingerQualify(UpdateQualifyDto qualifyDto)
     {
         var request = new RestRequest("api/Finger/UpdateQualify", Method.Put);
@@ -134,8 +185,9 @@ public class DetectService : BaseService
             }
             else
             {
-                _logger.LogWarning("检测记录更新失败 - 配件ID: {ID}, 错误信息: {Msg}",qualifyDto.id, apiResponse.Msg);
+                _logger.LogWarning("检测记录更新失败 - 配件ID: {ID}, 错误信息: {Msg}", qualifyDto.id, apiResponse.Msg);
             }
+
             return apiResponse;
         }
         catch (Exception ex)
@@ -146,7 +198,7 @@ public class DetectService : BaseService
             throw;
         }
     }
-    
+
     public async Task<ApiResponse> UpdatePalmQualify(UpdateQualifyDto qualifyDto)
     {
         var request = new RestRequest("api/Palm/UpdateQualify", Method.Put);
@@ -171,8 +223,9 @@ public class DetectService : BaseService
             }
             else
             {
-                _logger.LogWarning("检测记录更新失败 - 配件ID: {ID}, 错误信息: {Msg}",qualifyDto.id, apiResponse.Msg);
+                _logger.LogWarning("检测记录更新失败 - 配件ID: {ID}, 错误信息: {Msg}", qualifyDto.id, apiResponse.Msg);
             }
+
             return apiResponse;
         }
         catch (Exception ex)
@@ -183,7 +236,7 @@ public class DetectService : BaseService
             throw;
         }
     }
-    
+
     public async Task<ApiResponse> UpdateSplitQualify(UpdateQualifyDto qualifyDto)
     {
         var request = new RestRequest("api/Split/UpdateQualify", Method.Put);
@@ -208,8 +261,9 @@ public class DetectService : BaseService
             }
             else
             {
-                _logger.LogWarning("检测记录更新失败 - 配件ID: {ID}, 错误信息: {Msg}",qualifyDto.id, apiResponse.Msg);
+                _logger.LogWarning("检测记录更新失败 - 配件ID: {ID}, 错误信息: {Msg}", qualifyDto.id, apiResponse.Msg);
             }
+
             return apiResponse;
         }
         catch (Exception ex)

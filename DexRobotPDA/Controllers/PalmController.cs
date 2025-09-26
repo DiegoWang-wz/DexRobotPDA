@@ -96,13 +96,17 @@ public class PalmController : ControllerBase
             int sameTaskCount = await db.Palms
                 .Where(p => p.task_id == addPalmDto.task_id)
                 .CountAsync();
-
+            
+            int productNum = await db.ProductTasks
+                .Where(p => p.task_id == addPalmDto.task_id)
+                .Select(p => p.product_num)
+                .FirstOrDefaultAsync();
+            
             // 假设每个任务最多允许添加2个手掌，可根据实际业务修改
-            const int maxPalmsPerTask = 2;
-            if (sameTaskCount >= maxPalmsPerTask)
+            if (sameTaskCount >= productNum)
             {
                 response.ResultCode = -1;
-                response.Msg = $"生产单号 '{addPalmDto.task_id}' 的手掌数量已达到上限（{maxPalmsPerTask}个），无法继续添加";
+                response.Msg = $"生产单号 '{addPalmDto.task_id}' 的手掌数量已达到上限（{productNum}个），无法继续添加";
                 _logger.LogWarning("新增手掌失败：任务手掌数量已达上限 - TaskId: {TaskId}, 当前数量: {Count}",
                     addPalmDto.task_id, sameTaskCount);
                 return BadRequest(response);
@@ -149,8 +153,8 @@ public class PalmController : ControllerBase
             {
                 palm = mapper.Map<PalmDto>(palmModel),
                 current_count = sameTaskCount + 1,
-                max_allowed = maxPalmsPerTask,
-                remaining_slots = maxPalmsPerTask - (sameTaskCount + 1)
+                max_allowed = productNum,
+                remaining_slots = productNum - (sameTaskCount + 1)
             };
 
             return Ok(response);

@@ -74,9 +74,46 @@ public class Detect1Controller : ControllerBase
         return Ok(response);
     }
 
+    [HttpGet]
+    public IActionResult GetMotorWormDetectList(string task_id)
+    {
+        ApiResponse response = new ApiResponse();
+        try
+        {
+            // 根据task_id查询相关的MotorWormDetect记录
+            var list = db.Detect1
+                .Join(db.Motors,
+                    detect => detect.motor_id,
+                    motor => motor.motor_id,
+                    (detect, motor) => new { Detect = detect, Motor = motor })
+                .Where(x => x.Motor.task_id == task_id)
+                .Select(x => x.Detect)
+                .ToList();
+
+            _logger.LogDebug("从数据库获取到{Count}条记录", list.Count);
+
+            List<MotorWormDetectDto> Detects = mapper.Map<List<MotorWormDetectDto>>(list);
+            response.ResultCode = 1;
+            response.Msg = "Success";
+            response.ResultData = Detects;
+
+            // 记录成功信息
+            _logger.LogInformation("成功获取，共{Count}条记录", Detects.Count);
+        }
+        catch (Exception e)
+        {
+            response.ResultCode = -1;
+            response.Msg = "Error";
+
+            // 记录错误信息，包括异常详情
+            _logger.LogError(e, "获取列表时发生错误");
+        }
+
+        return Ok(response);
+    }
 
     [HttpPost]
-    public async Task<IActionResult> AddDetect1(AddDetect1Dto addDetectDto)
+    public async Task<IActionResult> AddDetect1(UpdateDetect1Dto addDetectDto)
     {
         ApiResponse response = new ApiResponse();
         try
@@ -114,13 +151,6 @@ public class Detect1Controller : ControllerBase
             // 7. 构建成功响应
             response.ResultCode = 1;
             response.Msg = "新增检测记录成功";
-            response.ResultData = new
-            {
-                detect_id = detectModel.id,
-                motor_id = detectModel.motor_id,
-                combine_time = detectModel.combine_time
-            };
-
             return Ok(response);
         }
         catch (DbUpdateException dbEx)
@@ -298,5 +328,68 @@ public class Detect1Controller : ControllerBase
 
             return StatusCode(500, response);
         }
+    }
+
+    [HttpGet]
+    public IActionResult Detect1Message(string motor_id)
+    {
+        ApiResponse response = new ApiResponse();
+        try
+        {
+            var detect1 = db.Detect1.FirstOrDefault(m => m.motor_id == motor_id);
+            if (detect1 == null)
+            {
+                response.ResultCode = 0;
+                response.Msg = "检测信息不存在";
+                return Ok(response);
+            }
+
+            List<string> issues = new List<string>();
+
+            // 检查测试前距离值
+            if (detect1.distance_before.HasValue && Math.Abs(detect1.distance_before.Value - 18.0) > 0.1)
+            {
+                issues.Add($"测试前的距离值 {detect1.distance_before.Value} 超出标准范围 (17.9-18.1)");
+            }
+
+            // 检查测试后距离值
+            if (detect1.distance_after.HasValue && Math.Abs(detect1.distance_after.Value - 18.0) > 0.1)
+            {
+                issues.Add($"测试后的距离值 {detect1.distance_after.Value} 超出标准范围 (17.9-18.1)");
+            }
+
+            // 检查距离差
+            if (detect1.distance_result.HasValue && detect1.distance_result.Value >= 0.02)
+            {
+                issues.Add("测试前后距离差大于等于0.02");
+            }
+
+            // 检查粘接时间
+            if (detect1.combine_time.HasValue && detect1.using_time.HasValue)
+            {
+                TimeSpan timeDiff = detect1.using_time.Value - detect1.combine_time.Value;
+                if (timeDiff.TotalHours <= 72)
+                {
+                    issues.Add("粘接时间小于72小时");
+                }
+            }
+
+            string message = issues.Count > 0 ? "不合格原因：" + string.Join(";", issues) : "合格";
+
+            response.ResultCode = 1;
+            response.Msg = "Success";
+            response.ResultData = new QualifyDto(){
+                qualify = issues.Count <= 0,
+                message = message
+            };
+        }
+        catch (Exception e)
+        {
+            response.ResultCode = -1;
+            response.Msg = $"Error: {e.Message}";
+            _logger.LogError(e, "获取电机状态失败，电机ID: {motor_id}", motor_id);
+        }
+
+        return Ok(response);
     }
 }

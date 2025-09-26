@@ -1,50 +1,50 @@
 ﻿@page "/Detect1"
 @implements IAsyncDisposable
-@using System.Text.RegularExpressions
-@using System.ComponentModel.DataAnnotations
-@using System.Dynamic
 
 <MudPaper Elevation="3" MaxWidth="1000px" Class="pa-4 ma-2 mx-auto">
     @if (isLoading)
     {
         <MudProgressLinear Color="Color.Primary" Indeterminate="true"/>
     }
-    else if (_detectDto?.id > 0)
+    else if (_motor?.id > 0)
     {
         <MudGrid Spacing="4">
             <MudItem xs="12" sm="8">
                 <MudPaper Class="pa-4">
                     <MudForm @ref="form" @bind-Errors="@errors" Model="@_detectDto">
-                        <MudTextField Class="my-2" Label="检测编号"
+                        <MudTextField Label="电机编号"
                                       Disabled="true"
-                                      @bind-Value="_detectDto.id"/>
-
-                        <MudTextField Class="my-2" Label="电机编号"
-                                      Disabled="true"
+                                      Class="my-2"
                                       @bind-Value="_detectDto.motor_id"
                                       RequiredError="请输入电机编号"/>
 
-                        <MudNumericField T="double?" Label="施加的力"
+                        <MudNumericField T="double?" Label="检测用力"
                                          Required="true"
-                                         RequiredError="请输入施加的力"
+                                         Class="my-2"
+                                         RequiredError="请输入检测用力"
                                          @bind-Value="_detectDto.force"/>
 
-                        <MudTextField Class="my-2" T="double?" Label="测试前的距离"
-                                      @bind-Value="_detectDto.distance_before"
-                                      OnBlur="CalculateDistanceResult"
-                                      Required="true"
-                                      RequiredError="请输入测试前的距离"/>
-
-                        <MudTextField Class="my-2" T="double?" Label="测试后的距离"
-                                      @bind-Value="_detectDto.distance_after"
-                                      OnBlur="CalculateDistanceResult"
-                                      Required="true"
-                                      RequiredError="请输入测试后的距离"/>
-
-                        <MudTextField Class="my-2" T="double?" Label="距离差"
+                        <MudNumericField T="double?" Label="测试前的距离"
+                                         Required="true"
+                                         RequiredError="请输入测试前的距离"
+                                         Step=".01"
+                                         Class="my-2"
+                                         OnBlur="CalculateDistanceResult"
+                                         @bind-Value="_detectDto.distance_before"/>
+                        
+                        <MudNumericField T="double?" Label="测试前的距离"
+                                         Required="true"
+                                         RequiredError="请输入测试前的距离"
+                                         Step=".01"
+                                         Class="my-2"
+                                         OnBlur="CalculateDistanceResult"
+                                         @bind-Value="_detectDto.distance_after"/>
+                        
+                        <MudTextField T="double?" Label="距离差"
                                       @bind-Value="_detectDto.distance_result"
                                       Disabled="true"
                                       Required="true"
+                                      Class="my-2"
                                       RequiredError="请输入距离差"/>
 
                         <MudDatePicker T="DateTime?"
@@ -69,19 +69,8 @@
                                       @bind-Value="_timeDiffHours"
                                       RequiredError="请输入距离差"/>
 
-                        @* <div class="d-flex align-center justify-space-between"> *@
-                        @*     <MudDatePicker T="DateTime?" *@
-                        @*                    Label="使用时间" *@
-                        @*                    Disabled="true" *@
-                        @*                    @bind-Date="_detectDto.using_time" *@
-                        @*                    DateFormat="yyyy-MM-dd HH:mm:ss" *@
-                        @*                    Adornment="Adornment.End" *@
-                        @*                    AdornmentIcon="@Icons.Material.Filled.Event" *@
-                        @*                    Class="my-2"/> *@
-                        @*     <MudButton Variant="Variant.Filled" Class="mx-2">获取当前时间</MudButton> *@
-                        @* </div> *@
-                        @* <MudTextField Class="my-2" T="string?" Label="备注" *@
-                        @*               @bind-Value="_detectDto.remarks"/> *@
+                        <MudTextField Class="my-2" T="string?" Label="备注"
+                                      @bind-Value="_detectDto.remarks"/>
 
                         <div class="d-flex">
                             <MudRadioGroup @bind-Value="_detectDto.if_qualified">
@@ -99,9 +88,6 @@
                                 提交检测结果
                             </MudButton>
                         </div>
-                        @* <MudText Typo="Typo.body2" Color="Color.Primary"> *@
-                        @*     当前选择状态: @(_detectDto.if_qualified.ToString() ?? "未选择") *@
-                        @* </MudText> *@
                     </MudForm>
                 </MudPaper>
             </MudItem>
@@ -166,7 +152,8 @@
     private bool hasSearched = false;
     private UserDto? currentUser;
     private DotNetObjectReference<Detect1>? dotNetRef;
-    private MotorWormDetectDto _detectDto = new();
+    private UpdateDetect1Dto _detectDto = new();
+    private MotorDto? _motor = new();
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -203,7 +190,8 @@
         motor_id = string.Empty;
         hasSearched = false;
         hasInputError = false;
-        _detectDto = new MotorWormDetectDto();
+        _detectDto = new();
+        _motor = new();
 
         if (currentUser != null)
         {
@@ -230,20 +218,25 @@
             return;
         }
 
+        _motor = new();
+        _detectDto = new();
         hasInputError = false;
         isLoading = true;
         StateHasChanged();
 
         try
         {
-            var result = await DetectService.GetMotorWormDetect(motor_id);
-            _detectDto = result;
-            if (_detectDto.using_time == null || _detectDto.using_time == DateTime.MinValue)
+            _motor = await DetectService.GetMotor(motor_id);
+            if (_motor != null)
             {
+                _detectDto.combine_time = _motor.created_at;
                 _detectDto.using_time = DateTime.Now;
             }
 
+            _detectDto.motor_id = _motor.motor_id;
             _detectDto.force = 500.00;
+            _detectDto.distance_before = 18.0;
+            _detectDto.distance_after = 18.0;
             _detectDto.inspector_id = currentUser?.employee_id;
             CalculateDistanceResult();
             CalculateTimeDiff();
@@ -251,7 +244,7 @@
         }
         catch (Exception ex)
         {
-            _detectDto = new MotorWormDetectDto();
+            _detectDto = new UpdateDetect1Dto();
             SnackbarHelper.Show(Snackbar, "加载失败", Severity.Error);
         }
         finally
@@ -304,10 +297,8 @@
 
     private void CalculateTimeDiff()
     {
-        // 仅当两个时间都不为空时计算
         if (_detectDto.combine_time.HasValue && _detectDto.using_time.HasValue)
         {
-            // 计算时间差（注意：使用时间不能早于粘结时间，需处理异常情况）
             TimeSpan timeDiff = _detectDto.using_time.Value - _detectDto.combine_time.Value;
 
             if (timeDiff.TotalHours >= 0)
@@ -316,13 +307,13 @@
             }
             else
             {
-                _timeDiffHours = null; // 使用时间早于粘结时间时，显示空值
+                _timeDiffHours = null; 
                 Snackbar.Add("使用时间不能早于粘结时间", Severity.Warning);
             }
         }
         else
         {
-            _timeDiffHours = null; // 任一时间为空时，清空小时差
+            _timeDiffHours = null; 
         }
     }
 
@@ -350,61 +341,51 @@
             try
             {
                 isSubmitting = true;
-                // 检查DTO是否完整
-                if (string.IsNullOrEmpty(_detectDto.motor_id))
-                {
-                    Snackbar.Add("电机编号不能为空", Severity.Error);
-                    return;
-                }
 
                 if (string.IsNullOrEmpty(_detectDto.inspector_id))
                 {
-                    Snackbar.Add("检测员信息缺失，请重新登录", Severity.Error);
+                    SnackbarHelper.Show(Snackbar, "检测员信息缺失，请重新登录", Severity.Error);
                     return;
                 }
 
-                var response = await DetectService.UpdateDetect1(_detectDto);
+                var response = await DetectService.AddDetect1(_detectDto);
 
                 Console.WriteLine($"API 响应结果: ResultCode = {response?.ResultCode}, Msg = {response?.Msg}");
 
                 if (response?.ResultCode == 1)
                 {
-                    Snackbar.Add("提交成功", Severity.Success);
-                    
+                    SnackbarHelper.Show(Snackbar, "提交成功", Severity.Success);
                     try
                     {
                         var updateQualifyDto = new UpdateQualifyDto
                         {
                             id = _detectDto.motor_id,
-                            qualified = true
+                            qualified = _detectDto.if_qualified ? true : false
                         };
 
                         var response2 = await DetectService.UpdateMotorQualify(updateQualifyDto);
                         if (response2?.ResultCode == 1)
                         {
-                            Snackbar.Add($"更新{_detectDto.motor_id}的状态成功", Severity.Success);
-                        }else
+                            SnackbarHelper.Show(Snackbar, $"更新{_detectDto.motor_id}的状态成功", Severity.Success);
+                        }
+                        else
                         {
-                            Snackbar.Add($"更新失败：{response2?.Msg}", Severity.Error);
+                            SnackbarHelper.Show(Snackbar, $"更新失败：{response2?.Msg}", Severity.Error);
                         }
                     }
                     catch (Exception ex)
                     {
-                        Console.WriteLine($"提交异常: {ex.Message}");
-                        Console.WriteLine($"异常堆栈: {ex.StackTrace}");
-                        Snackbar.Add($"提交异常：{ex.Message}", Severity.Error);
+                        SnackbarHelper.Show(Snackbar, $"提交异常：{ex.Message}", Severity.Error);
                     }
                 }
                 else
                 {
-                    Snackbar.Add($"提交失败：{response?.Msg}", Severity.Error);
+                    SnackbarHelper.Show(Snackbar, $"提交失败：{response?.Msg}", Severity.Error);
                 }
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"提交异常: {ex.Message}");
-                Console.WriteLine($"异常堆栈: {ex.StackTrace}");
-                Snackbar.Add($"提交异常：{ex.Message}", Severity.Error);
+                SnackbarHelper.Show(Snackbar, $"提交异常：{ex.Message}", Severity.Error);
             }
             finally
             {
@@ -418,9 +399,7 @@
             {
                 Console.WriteLine($"- {error}");
             }
-
-            Snackbar.Add("表单存在错误，请检查后提交", Severity.Warning);
+            SnackbarHelper.Show(Snackbar, "表单存在错误，请检查后提交", Severity.Warning);
         }
     }
-
 }

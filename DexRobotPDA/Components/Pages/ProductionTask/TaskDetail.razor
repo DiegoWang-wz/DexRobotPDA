@@ -83,14 +83,14 @@ else
                 {
                     if (context.Completed)
                     {
-                        <MudBadge Dot="true" Color="Color.Info" Class="mx-2 my-1">
+                        <MudBadge Dot="true"  Color="Color.Error" Class="mx-2 my-1">
                             <MudChip T="string" Icon="@Icons.Material.Filled.CheckCircle"
                                      Color="Color.Success">@(context.Title)</MudChip>
                         </MudBadge>
                     }
                     else
                     {
-                        <MudBadge Dot="true" Color="Color.Info" Class="mx-2 my-1">
+                        <MudBadge Dot="true"  Color="Color.Error" Class="mx-2 my-1">
                             <MudChip T="string">@(context.Title)</MudChip>
                         </MudBadge>
                     }
@@ -191,15 +191,170 @@ else
                 </MudStep>
 
                 <MudStep Completed="task.process_2" Title="2.蜗杆粘接检测">
-                    <div class="d-flex justify-content-center align-items-center py-10">
-                        <MudText Typo="Typo.body1" Color="Color.Secondary">暂无数据</MudText>
-                    </div>
+                     @if (isMotorTableLoading)
+                    {
+                        <div class="d-flex justify-content-center align-items-center py-10">
+                            <MudText Typo="Typo.body1" Color="Color.Secondary">加载中...</MudText>
+                        </div>
+                    }
+                    else if (Detect1List.Count == 0)
+                    {
+                        <div class="d-flex justify-content-center align-items-center py-10">
+                            <MudText Typo="Typo.body1" Color="Color.Secondary">暂无数据</MudText>
+                        </div>
+                    }
+                    else
+                    {
+                        <MudTable Items="Detect1List" Hover="true" FixedHeader="true"
+                                  SortLabel="Sort By" Elevation="3" Bordered="true" Striped="true"
+                                  Dense="true">
+                            <HeaderContent>
+                                <MudTh>
+                                    <MudTableSortLabel T="MotorWormDetectDto"
+                                                       SortBy="@(context => Detect1List.IndexOf(context) + 1)">序号
+                                    </MudTableSortLabel>
+                                </MudTh>
+                                <MudTh>
+                                    <MudTableSortLabel SortBy="(MotorWormDetectDto x) => x.motor_id">电机编号</MudTableSortLabel>
+                                </MudTh>
+                                <MudTh>
+                                    <MudTableSortLabel SortBy="(MotorWormDetectDto x) => x.force">检测用力</MudTableSortLabel>
+                                </MudTh>
+                                <MudTh>
+                                    <MudTableSortLabel SortBy="(MotorWormDetectDto x) => x.distance_before">测试前的距离
+                                    </MudTableSortLabel>
+                                </MudTh>
+                                <MudTh>
+                                    <MudTableSortLabel SortBy="(MotorWormDetectDto x) => x.distance_after">测试后的距离
+                                    </MudTableSortLabel>
+                                </MudTh>
+                                <MudTh>
+                                    <MudTableSortLabel SortBy="(MotorWormDetectDto x) => x.distance_result">距离差
+                                    </MudTableSortLabel>
+                                </MudTh>
+                                <MudTh>
+                                    <MudTableSortLabel SortBy="(MotorWormDetectDto x) => x.combine_time">粘合时间
+                                    </MudTableSortLabel>
+                                </MudTh>
+                                <MudTh>
+                                    <MudTableSortLabel SortBy="(MotorWormDetectDto x) => x.using_time">使用时间</MudTableSortLabel>
+                                </MudTh>
+                                <MudTh>
+                                    <MudTableSortLabel SortBy="(MotorWormDetectDto x) => x.inspector_id">检测员</MudTableSortLabel>
+                                </MudTh>
+                                <MudTh>
+                                    <MudTableSortLabel SortBy="(MotorWormDetectDto x) => x.remarks">备注</MudTableSortLabel>
+                                </MudTh>
+                                <MudTh>
+                                    <MudTableSortLabel SortBy="(MotorWormDetectDto x) => x.if_qualified">是否合格</MudTableSortLabel>
+                                </MudTh>
+                                <MudTh>操作</MudTh>
+                            </HeaderContent>
+                            <RowTemplate>
+                                <MudTd DataLabel="序号">@(Detect1List.IndexOf(context) + 1)</MudTd>
+                                <MudTd DataLabel="电机ID">@context.motor_id</MudTd>
+                                <MudTd DataLabel="任务ID">@context.force</MudTd>
+                                <MudTd DataLabel="操作员ID">@context.distance_before</MudTd>
+                                <MudTd DataLabel="操作员ID">@context.distance_after</MudTd>
+                                <MudTd DataLabel="操作员ID">@context.distance_result</MudTd>
+                                <MudTd DataLabel="创建时间">@context.combine_time?.ToString("yyyy-MM-dd HH:mm")</MudTd>
+                                <MudTd DataLabel="更新时间">@context.using_time?.ToString("yyyy-MM-dd HH:mm")</MudTd>
+                                <MudTd DataLabel="操作员ID">@context.inspector_id</MudTd>
+                                <MudTd DataLabel="操作员ID">@context.remarks</MudTd>
+                                <MudTd DataLabel="是否合格">
+                                    <MudChip T="string"
+                                             Color="@(context.if_qualified ? Color.Success : Color.Error)">@(context.if_qualified ? "是" : "否")</MudChip>
+                                </MudTd>
+                                <MudTd DataLabel="操作">
+                                    <MudButton Variant="Variant.Filled" StartIcon="@Icons.Material.Filled.Edit"
+                                               Color="Color.Info">修改
+                                    </MudButton>
+                                    <MudButton Variant="Variant.Filled" StartIcon="@Icons.Material.Filled.Delete"
+                                               Color="Color.Error">删除
+                                    </MudButton>
+                                </MudTd>
+                            </RowTemplate>
+                            <PagerContent>
+                                <MudTablePager RowsPerPageString="显示数量"
+                                               PageSizeOptions="new int[] { 10, 20, 50, 100 }"/>
+                            </PagerContent>
+                        </MudTable>
+                    }
                 </MudStep>
 
                 <MudStep Completed="task.process_3" Title="3.分指机构粘接检测">
-                    <div class="d-flex justify-content-center align-items-center py-10">
-                        <MudText Typo="Typo.body1" Color="Color.Secondary">暂无数据</MudText>
-                    </div>
+                    @if (isMotorTableLoading)
+                    {
+                        <div class="d-flex justify-content-center align-items-center py-10">
+                            <MudText Typo="Typo.body1" Color="Color.Secondary">加载中...</MudText>
+                        </div>
+                    }
+                    else if (Detect2List.Count == 0)
+                    {
+                        <div class="d-flex justify-content-center align-items-center py-10">
+                            <MudText Typo="Typo.body1" Color="Color.Secondary">暂无数据</MudText>
+                        </div>
+                    }
+                    else
+                    {
+                        <MudTable Items="Detect2List" Hover="true" FixedHeader="true"
+                                  SortLabel="Sort By" Elevation="3" Bordered="true" Striped="true"
+                                  Dense="true">
+                            <HeaderContent>
+                                <MudTh>
+                                    <MudTableSortLabel T="SplitWormDetectDto"
+                                                       SortBy="@(context => Detect2List.IndexOf(context) + 1)">序号
+                                    </MudTableSortLabel>
+                                </MudTh>
+                                <MudTh>
+                                    <MudTableSortLabel SortBy="(SplitWormDetectDto x) => x.split_id">分指机构ID</MudTableSortLabel>
+                                </MudTh>
+                                <MudTh>
+                                    <MudTableSortLabel SortBy="(SplitWormDetectDto x) => x.combine_time">粘接时间</MudTableSortLabel>
+                                </MudTh>
+                                <MudTh>
+                                    <MudTableSortLabel SortBy="(SplitWormDetectDto x) => x.using_time">使用时间
+                                    </MudTableSortLabel>
+                                </MudTh>
+                                <MudTh>
+                                    <MudTableSortLabel SortBy="(SplitWormDetectDto x) => x.inspector">检测员
+                                    </MudTableSortLabel>
+                                </MudTh>
+                                <MudTh>
+                                    <MudTableSortLabel SortBy="(SplitWormDetectDto x) => x.remarks">备注</MudTableSortLabel>
+                                </MudTh>
+                                <MudTh>
+                                    <MudTableSortLabel SortBy="(SplitWormDetectDto x) => x.if_qualified">是否合格
+                                    </MudTableSortLabel>
+                                </MudTh>
+                                <MudTh>操作</MudTh>
+                            </HeaderContent>
+                            <RowTemplate>
+                                <MudTd DataLabel="序号">@(Detect2List.IndexOf(context) + 1)</MudTd>
+                                <MudTd DataLabel="分指机构ID">@context.split_id</MudTd>
+                                <MudTd DataLabel="粘合时间">@context.combine_time?.ToString("yyyy-MM-dd HH:mm")</MudTd>
+                                <MudTd DataLabel="使用时间">@context.using_time?.ToString("yyyy-MM-dd HH:mm")</MudTd>
+                                <MudTd DataLabel="检测人员">@context.inspector</MudTd>
+                                <MudTd DataLabel="备注">@context.remarks</MudTd>
+                                <MudTd DataLabel="是否合格">
+                                    <MudChip T="string"
+                                             Color="@(context.if_qualified ? Color.Success : Color.Error)">@(context.if_qualified ? "是" : "否")</MudChip>
+                                </MudTd>
+                                <MudTd DataLabel="操作">
+                                    <MudButton Variant="Variant.Filled" StartIcon="@Icons.Material.Filled.Edit"
+                                               Color="Color.Info">修改
+                                    </MudButton>
+                                    <MudButton Variant="Variant.Filled" StartIcon="@Icons.Material.Filled.Delete"
+                                               Color="Color.Error">删除
+                                    </MudButton>
+                                </MudTd>
+                            </RowTemplate>
+                            <PagerContent>
+                                <MudTablePager RowsPerPageString="显示数量"
+                                               PageSizeOptions="new int[] { 10, 20, 50, 100 }"/>
+                            </PagerContent>
+                        </MudTable>
+                    }
                 </MudStep>
 
                 <MudStep Completed="task.process_4" Title="4.分指机构标定粘接">
@@ -415,8 +570,7 @@ else
     private ProductTaskDto task;
     private bool _completed;
     private bool isLoading = true;
-    private int currentStepIndex = 0; // 当前步骤索引
-
+    private int currentStepIndex = 0;
     // 新增三个表格的加载状态变量
     private bool isMotorTableLoading = false;
     private bool isFingerTableLoading = false;
@@ -425,21 +579,20 @@ else
     private List<MotorDto> finishedMotors = new List<MotorDto>();
     private List<FingerDto> finishedFingers = new List<FingerDto>();
     private List<PalmDto> finishedPalms = new List<PalmDto>();
+    private List<MotorWormDetectDto> Detect1List = new List<MotorWormDetectDto>();
+    private List<SplitWormDetectDto> Detect2List = new List<SplitWormDetectDto>();
 
     protected override async Task OnInitializedAsync()
     {
         if (!string.IsNullOrEmpty(taskId))
         {
-            // 设置步骤索引，如果有传入参数则使用参数值，否则默认为0
             if (stepIndex.HasValue && stepIndex.Value >= 0 && stepIndex.Value <= 7)
             {
                 currentStepIndex = stepIndex.Value;
             }
-            
             await LoadTaskDetail();
-            await LoadStepData(currentStepIndex); // 根据当前步骤加载对应数据
-            
-            Console.WriteLine($"当前索引: {currentStepIndex}");
+            await LoadStepData(currentStepIndex);
+            // Console.WriteLine($"当前索引: {currentStepIndex}");
         }
         else
         {
@@ -449,7 +602,6 @@ else
 
     protected override async Task OnParametersSetAsync()
     {
-        // 当参数变化时重新设置步骤索引
         if (stepIndex.HasValue && stepIndex.Value >= 0 && stepIndex.Value <= 7)
         {
             if (currentStepIndex != stepIndex.Value)
@@ -469,11 +621,23 @@ else
             case 0: // 步骤1
                 await GetFinishedMotors();
                 break;
+            case 1: // 步骤2
+                await GetMotorWormDetectList();
+                break;
+            case 2: // 步骤3
+                await GetSplitWormDetectList();
+                break;
+            case 3: // 步骤4
+                break;
             case 4: // 步骤5
                 await GetFinishedFingers();
                 break;
+            case 5: // 步骤6
+                break;
             case 6: // 步骤7
                 await GetFinishedPalms();
+                break;
+            case 7: // 步骤8
                 break;
             default:
                 // 其他步骤不需要加载表格数据
@@ -486,7 +650,7 @@ else
         if (arg.Action == StepAction.Activate)
         {
             int targetIndex = arg.StepIndex;
-            currentStepIndex = targetIndex; // 更新当前索引
+            currentStepIndex = targetIndex; 
             
             // 更新URL，但不触发页面重载
             var newUri = $"/TaskDetail/{taskId}/{targetIndex}";
@@ -516,7 +680,45 @@ else
             StateHasChanged();
         }
     }
-
+    
+    private async Task GetMotorWormDetectList()
+    {
+        try
+        {
+            isMotorTableLoading = true;
+            var result = await DetectService.GetMotorWormDetectList(taskId);
+            Detect1List = result;
+        }
+        catch (Exception ex)
+        {
+            Detect1List = new List<MotorWormDetectDto>();
+            Snackbar.Add($"加载检测数据失败: {ex.Message}", Severity.Warning);
+        }
+        finally
+        {
+            isMotorTableLoading = false;
+            StateHasChanged();
+        }
+    }
+    private async Task GetSplitWormDetectList()
+    {
+        try
+        {
+            isMotorTableLoading = true;
+            var result = await DetectService.GetSplitWormDetectList(taskId);
+            Detect2List = result;
+        }
+        catch (Exception ex)
+        {
+            Detect2List = new List<SplitWormDetectDto>();
+            Snackbar.Add($"加载检测数据失败: {ex.Message}", Severity.Warning);
+        }
+        finally
+        {
+            isMotorTableLoading = false;
+            StateHasChanged();
+        }
+    }
     // 手指表格数据加载
     private async Task GetFinishedFingers()
     {

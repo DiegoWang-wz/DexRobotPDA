@@ -36,41 +36,56 @@
         }
         else
         {
-            <MudStack Row="true" Spacing="4" Class="d-flex align-center py-2">
-                <MudButton
-                    Variant="Variant.Outlined"
-                    Color="@(ScannerService.IsAutoMode ? Color.Success : Color.Primary)"
-                    OnClick="ToggleScanModeAsync"
-                    Size="Size.Medium">
-                    @(ScannerService.IsAutoMode ? "自动匹配模式" : "手动聚焦模式")
-                    <MudIcon
-                        Icon="@(ScannerService.IsAutoMode ? Icons.Material.Filled.AutoAwesome : Icons.Material.Filled.Man)"
-                        Class="ml-2"/>
+            @if (finishedPalms.Count == task.product_num )
+            {
+                <div class="d-flex flex-row align-center my-6">
+                    <MudText Typo="Typo.h6" Class="text-primary mr-4">该任务已完成</MudText>
+                    <MudSpacer/>
+                    <MudButton Variant="Variant.Filled"
+                               OnClick="NavigateToDetail"
+                               Color="Color.Primary">
+                        查看明细
+                    </MudButton>
+                </div>
+            }
+            else
+            {
+                <MudStack Row="true" Spacing="4" Class="d-flex align-center py-2">
+                    <MudButton
+                        Variant="Variant.Outlined"
+                        Color="@(ScannerService.IsAutoMode ? Color.Success : Color.Primary)"
+                        OnClick="ToggleScanModeAsync"
+                        Size="Size.Medium">
+                        @(ScannerService.IsAutoMode ? "自动匹配模式" : "手动聚焦模式")
+                        <MudIcon
+                            Icon="@(ScannerService.IsAutoMode ? Icons.Material.Filled.AutoAwesome : Icons.Material.Filled.Man)"
+                            Class="ml-2"/>
+                    </MudButton>
+                    <MudSpacer/>
+                    <MudButton Variant="Variant.Filled"
+                               OnClick="NavigateToDetail"
+                               Color="Color.Primary">
+                        已完成数量@(finishedPalms.Count)/@task.product_num
+                    </MudButton>
+                </MudStack>
+                <BarcodeScanner
+                    Inputs="scannerInputs"
+                    DetermineTargetInput="DetermineTargetInput"
+                    OnInputValueChanged="HandleInputValueChanged"/>
+                <MudDivider Class="my-4"/>
+                <MudButton OnClick="HandleBinding" Size="Size.Large" Variant="Variant.Filled" Color="Color.Primary"
+                           FullWidth="true" Disabled="@isBinding">
+                    @if (isBinding)
+                    {
+                        <MudProgressCircular Size="Size.Small" Indeterminate="true"/>
+                        <MudText Class="ml-2">绑定中...</MudText>
+                    }
+                    else
+                    {
+                        <MudText>绑定</MudText>
+                    }
                 </MudButton>
-                <MudSpacer/>
-                <MudButton Variant="Variant.Filled"
-                           OnClick="NavigateToDetail"
-                           Color="Color.Primary">
-                    已完成数量@(finishedPalms.Count)/1
-                </MudButton>
-            </MudStack>
-            <BarcodeScanner
-                Inputs="scannerInputs"
-                DetermineTargetInput="DetermineTargetInput"
-                OnInputValueChanged="HandleInputValueChanged"/>
-            <MudDivider Class="my-4"/>
-            <MudButton OnClick="HandleBinding" Size="Size.Large" Variant="Variant.Filled" Color="Color.Primary"
-                       FullWidth="true" Disabled="@isBinding">
-                @if (isBinding)
-                {
-                    <MudProgressCircular Size="Size.Small" Indeterminate="true"/>
-                    <MudText Class="ml-2">绑定中...</MudText>
-                }
-                else
-                {
-                    <MudText>绑定</MudText>
-                }
-            </MudButton>
+            }
         }
     </div>
     <MudDivider Class="my-4"/>
@@ -340,6 +355,14 @@
         {
             var result = await ProcessThreeService.GetPalmList(taskId);
             finishedPalms = result;
+            if (finishedPalms.Count >= (task.product_num*5))
+            {
+                await TaskService.UpdateTaskProcessStatus(taskId, "process7", 1);
+            }
+            else
+            {
+                await TaskService.UpdateTaskProcessStatus(taskId, "process7", 0);
+            }
         }
         catch (Exception ex)
         {
@@ -347,7 +370,7 @@
             SnackbarHelper.Show(Snackbar, "加载失败", Severity.Error);
         }
     }
-    
+
     private void NavigateToDetail()
     {
         NavManager.NavigateTo($"/TaskDetail/{taskId}/{6}");

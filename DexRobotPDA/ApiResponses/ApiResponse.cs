@@ -16,7 +16,6 @@ public class ApiResponse
     /// 数据
     /// </summary>
     public object ResultData { get; set; }
-    
 }
 
 public class ApiResponse<T>

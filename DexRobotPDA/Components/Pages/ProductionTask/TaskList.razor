@@ -90,6 +90,9 @@
                         <MudTableSortLabel SortBy="(ProductTaskDto x) => x.description">任务描述</MudTableSortLabel>
                     </MudTh>
                     <MudTh>
+                        <MudTableSortLabel SortBy="(ProductTaskDto x) => x.product_num">生产数量</MudTableSortLabel>
+                    </MudTh>
+                    <MudTh>
                         <MudTableSortLabel SortBy="(ProductTaskDto x) => x.priority">优先级</MudTableSortLabel>
                     </MudTh>
                     <MudTh>
@@ -111,17 +114,16 @@
                     <MudTd DataLabel="任务ID">@context.task_id</MudTd>
                     <MudTd DataLabel="任务名称">@context.title</MudTd>
                     <MudTd DataLabel="任务描述">@context.description</MudTd>
+                    <MudTd DataLabel="生产数量">@context.product_num</MudTd>
                     <MudTd DataLabel="优先级">@context.priority</MudTd>
                     <MudTd DataLabel="负责人">@context.assignee_id</MudTd>
                     <MudTd DataLabel="创建时间">@context.created_at.ToString("yyyy-MM-dd HH:mm")</MudTd>
                     <MudTd DataLabel="更新时间">@context.updated_at.ToString("yyyy-MM-dd HH:mm")</MudTd>
                     <MudTd DataLabel="状态">
-                        <MudChip T="string"
-                                 Color="GetStatusColor(context.status)">@GetStatusText(context.status)</MudChip>
+                        <MudChip T="string" Color="GetStatusColor(context.status)">@GetStatusText(context.status)</MudChip>
                     </MudTd>
                     <MudTd DataLabel="操作">
-                        <MudButton Variant="Variant.Filled" Color="Color.Success"
-                                   OnClick="@(() => NavigateToDetail(context.task_id))">查看明细
+                        <MudButton Variant="Variant.Filled" Color="Color.Success" OnClick="@(() => NavigateToDetail(context.task_id))">查看明细
                         </MudButton>
                     </MudTd>
                 </RowTemplate>

@@ -60,7 +60,7 @@ public class BarcodeScannerService : IAsyncDisposable
         if (_isAutoMode)
         {
             await EnterAutoFocusModeAsync();
-            SnackbarHelper.Show(_snackbar, "已切换到自动匹配模式", Severity.Info);
+            SnackbarHelper.Show(_snackbar, "已切换到自动匹配模式", Severity.Success);
         }
         else
         {

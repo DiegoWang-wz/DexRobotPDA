@@ -26,28 +26,21 @@ public class MotorController : ControllerBase
     }
 
     [HttpGet]
-    public IActionResult GetMotors()
+    public async Task<IActionResult> GetMotor(string motor_id)
     {
         ApiResponse response = new ApiResponse();
         try
         {
-            var list = db.Motors.ToList();
-            _logger.LogDebug("从数据库获取到{Count}条记录", list.Count);
-
-            List<MotorDto> motors = mapper.Map<List<MotorDto>>(list);
+            var motor = await db.Motors.FirstOrDefaultAsync(m => m.motor_id == motor_id);
+            MotorDto motors = mapper.Map<MotorDto>(motor);
             response.ResultCode = 1;
             response.Msg = "Success";
             response.ResultData = motors;
-
-            // 记录成功信息
-            _logger.LogInformation("成功获取，共{Count}条记录", motors.Count);
         }
         catch (Exception e)
         {
             response.ResultCode = -1;
             response.Msg = "Error";
-
-            // 记录错误信息，包括异常详情
             _logger.LogError(e, "获取列表时发生错误");
         }
 
@@ -75,12 +68,17 @@ public class MotorController : ControllerBase
                 .Where(m => m.task_id == addMotorDto.task_id)
                 .CountAsync();
 
-            if (sameTaskCount >= 11)
+            int productNum = (await db.ProductTasks
+                .Where(p => p.task_id == addMotorDto.task_id)
+                .Select(p => p.product_num)
+                .FirstOrDefaultAsync())*11;
+
+            if (sameTaskCount >= productNum)
             {
                 response.ResultCode = -1;
-                response.Msg = $"生产单号 '{addMotorDto.task_id}' 的电机数量已达到上限（11个），无法继续添加";
-                _logger.LogWarning("新增电机失败：任务电机数量已达上限 - TaskId: {TaskId}, 当前数量: {Count}",
-                    addMotorDto.task_id, sameTaskCount);
+                response.Msg = $"生产单号 '{addMotorDto.task_id}' 的电机数量已达到上限，无法继续添加";
+                _logger.LogWarning("新增电机失败：任务电机数量已达上限 - TaskId: {TaskId}, 当前数量: {Count}, 任务数量: {Count2}",
+                    addMotorDto.task_id, sameTaskCount,productNum);
                 return BadRequest(response);
             }
 
@@ -245,5 +243,38 @@ public class MotorController : ControllerBase
             res.Msg = $"更新失败: {ex.Message}";
             return BadRequest(res);
         }
+    }
+    
+    [HttpGet]
+    public IActionResult GetMotorQualify(string motor_id)
+    {
+        ApiResponse response = new ApiResponse();
+        try
+        {
+            var motor =  db.Motors.FirstOrDefault(m => m.motor_id == motor_id);
+
+
+            if (motor == null)
+            {
+                response.ResultCode = 0;
+                response.Msg = "电机不存在";
+                return Ok(response);
+            }
+
+            response.ResultCode = 1;
+            response.Msg = "Success";
+            response.ResultData = new QualifyDto(){
+                qualify = motor.is_qualified,
+                message = motor.motor_id,
+            };
+        }
+        catch (Exception e)
+        {
+            response.ResultCode = -1;
+            response.Msg = $"Error: {e.Message}";
+            _logger.LogError(e, "获取电机状态失败，电机ID: {motor_id}", motor_id);
+        }
+
+        return Ok(response);
     }
 }

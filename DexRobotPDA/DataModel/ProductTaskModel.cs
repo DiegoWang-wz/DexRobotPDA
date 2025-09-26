@@ -104,6 +104,10 @@ public class ProductTaskModel
     public byte process_7 { get; set; } = 0;
     [Required]
     public byte process_8 { get; set; } = 0;
+    [Required]
+    public int product_num { get; set; } = 1;
+    
+    
 
     // 导航属性
     public EmployeeModel Assignee { get; set; }

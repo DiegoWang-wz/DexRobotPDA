@@ -224,6 +224,12 @@ public class ProductTaskController : ControllerBase
                 case "process6":
                     task.process_6 = dto.status;
                     break;
+                case "process7":
+                    task.process_7 = dto.status;
+                    break;
+                case "process8":
+                    task.process_8 = dto.status;
+                    break;
                 default:
                     task.status = dto.status;
                     break;
